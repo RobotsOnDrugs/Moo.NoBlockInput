@@ -22,6 +22,7 @@ Outright malicious remote access tools (RATs) are not planned for investigation 
 | [ConnectWise ScreenConnect](https://screenconnect.connectwise.com/) | ✔️ | Fullly supported, 64-bit |
 | [GoToMyPC](https://get.gotomypc.com/) | :x: | Planned for investigation (low priority) |
 | [LogMeInRescue](https://www.logmeinrescue.com/)/[LogMeIn123](https://secure.logmeinrescue.com/customer/code.aspx) | :x: | Planned for investigation |
+| [Quick Assist](https://apps.microsoft.com/detail/quick-assist/9P7BP5VNWKX5) | :x: | Planned for investigation (low priority) |
 | [Remote Utilities](https://www.remoteutilities.com/) | ✔️ | Fully supported, 32-bit |
 | [RustDesk](https://rustdesk.com/) | :x: | Planned for investigation |
 | [Splashtop](https://www.splashtop.com/) | :x: | Planned for investigation |
