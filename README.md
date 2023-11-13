@@ -18,7 +18,9 @@ Note that this list is not exhaustive of all remote desktop software and that th
 Outright malicious remote access tools (RATs) are not planned for investigation at this time but could be supported in the future if needed.
 | Software | Status | Remarks |
 | --- | :---: | --- |
+| [Ammyy Admin](https://www.ammyy.com/) | :x: | Planned for investigation |
 | [AnyDesk](https://anydesk.com/) | :x: | Planned for investigation (low priority) |
+| [AnyViewer](https://www.anyviewer.com/) | N/A | Planned for investigation (low priority); doesn't seem to support blocking input in the free version |
 | [AweSun/AweRay Remote](https://sun.aweray.com/) | N/A | Can blank screen, but doesn't seem to support blocking input |
 | [Chrome Remote Desktop](https://remotedesktop.google.com) | :x: | Investigation currently blocked (requires Google login on both sides) (low priority) |
 | [ConnectWise ScreenConnect](https://screenconnect.connectwise.com/) | ✔️ | Fully supported, 64-bit |
