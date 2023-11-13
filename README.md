@@ -4,6 +4,8 @@ NoBlockInput hooks the call to [BlockInput()](https://learn.microsoft.com/en-us/
 
 **Note:** in order to hook an API call in an application and pause its execution to hook before it can call the API, administrator privileges are required. Also note that it is outside the scope of this tool to unhide a screen that has been hidden by remote desktop software, although it is possible to do so.
 
+**Additional important note:** Windows Defender does not like this behavior and flags it as Win32/Wacapew.C!ml with "potentially unwanted behavior", which is apparently [a common false positive made by their AI](https://answers.microsoft.com/en-us/windows/forum/all/wacatac-false-positive-outbreak/0d92ef05-50db-4d12-92f4-fcfe8f0b966c) (note the "ml" prefix for "machine learning"). It even [flags things made with PyInstaller](https://github.com/pyinstaller/pyinstaller/issues/5668) (lol). McAfee does not (yet?) flag this program and is more fun to use with scammers on your VM anyway. Evading AV is not a priority for this project, so you'll have to make an exclusion for whatever folder you place this in if Defender is giving you trouble.
+
 ### Usage
 NoBlockInput is most effective when run before any remote desktop software.
 Once launched, it will sit in the background and wait for such software to run, hooking it as soon as it receives the process creation event from Windows.
@@ -17,7 +19,7 @@ Outright malicious remote access tools (RATs) are not planned for investigation 
 | Software | Status | Remarks |
 | --- | :---: | --- |
 | [AnyDesk](https://anydesk.com/) | :x: | Input blocking can be turned off by normal means |
-| [AweSun/AweRay Remote](https://sun.aweray.com/) | :x: | Planned for investigation |
+| [AweSun/AweRay Remote](https://sun.aweray.com/) | N/A | Can blank screen, but doesn't seem to support blocking input |
 | [Chrome Remote Desktop](https://remotedesktop.google.com) | :x: | Planned for investigation |
 | [ConnectWise ScreenConnect](https://screenconnect.connectwise.com/) | ✔️ | Fullly supported, 64-bit |
 | [GoToMyPC](https://get.gotomypc.com/) | :x: | Planned for investigation (low priority) |
