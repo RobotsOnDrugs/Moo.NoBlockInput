@@ -28,6 +28,6 @@ Outright malicious remote access tools (RATs) are not planned for investigation 
 | [Remote Utilities](https://www.remoteutilities.com/) | ✔️ | Fully supported, 32-bit |
 | [RustDesk](https://rustdesk.com/) | :x: | Planned for investigation |
 | [Splashtop](https://www.splashtop.com/) | :x: | Planned for investigation |
-| [SupRemo](https://www.supremocontrol.com/) | :x: | Planned for investigation |
+| [SupRemo](https://www.supremocontrol.com/) | ✔️ | Fully supported, 32-bit; requires SYSTEM-level privileges |
 | [TeamViewer](https://www.teamviewer.com/) | :x: | Planned for investigation (low priority) |
 | [UltraViewer](https://www.ultraviewer.net/) | N/A | Doesn't seem to support blocking input |

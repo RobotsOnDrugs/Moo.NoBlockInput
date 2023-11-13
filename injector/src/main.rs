@@ -37,7 +37,7 @@ const HOOK_DLL_NAME: &str = "noblock_input_hook_x86.dll";
 #[cfg(target_arch = "x86")]
 const TRACE_NAME: &str = "NoBlockInput_x86";
 #[cfg(target_arch = "x86")]
-const HOOK_TARGETS: [&str; 1] = ["rfusclient.exe"];
+const HOOK_TARGETS: [&str; 2] = ["rfusclient.exe", "Supremo.exe"];
 
 fn main()
 {
