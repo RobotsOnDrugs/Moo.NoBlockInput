@@ -4,7 +4,7 @@ NoBlockInput hooks the call to [BlockInput()](https://learn.microsoft.com/en-us/
 
 **Note:** in order to hook an API call in an application and pause its execution to hook before it can call the API, administrator privileges are required. Hooking SupRemo requires SYSTEM-level privileges, so a tool such as [PsExec](https://learn.microsoft.com/en-us/sysinternals/downloads/psexec) with the `-s` switch is required. Also note that it is outside the scope of this tool to unhide a screen that has been hidden by remote desktop software, although it is possible to do so.
 
-**Additional important note:** Windows Defender does not like this behavior and flags it as Win32/Wacapew.C!ml with "potentially unwanted behavior", which is apparently [a common false positive made by their AI](https://answers.microsoft.com/en-us/windows/forum/all/wacatac-false-positive-outbreak/0d92ef05-50db-4d12-92f4-fcfe8f0b966c) (note the "ml" prefix for "machine learning"). It even [flags things made with PyInstaller](https://github.com/pyinstaller/pyinstaller/issues/5668) (lol). McAfee does not (yet?) flag this program and is more fun to use with scammers on your VM anyway. Evading AV is not a priority for this project, so you'll have to make an exclusion for whatever folder you place this in if Defender is giving you trouble.
+**Additional important note:** Windows Defender does not like this behavior and flags it as Win32/Wacapew.C!ml with "potentially unwanted behavior", which is apparently [a common false positive made by their AI](https://answers.microsoft.com/en-us/windows/forum/all/wacatac-false-positive-outbreak/0d92ef05-50db-4d12-92f4-fcfe8f0b966c) (note the "ml" suffix for "machine learning"). It even [flags things made with PyInstaller](https://github.com/pyinstaller/pyinstaller/issues/5668) (lol). McAfee does not (yet?) flag this program and is more fun to use with scammers on the VM anyway. Evading AV is not a priority for this project, so you'll have to make an exclusion for whatever folder you place this in if Defender is giving you trouble.
 
 ### Usage
 NoBlockInput is most effective when run before any remote desktop software.
@@ -13,17 +13,17 @@ It can be run while the remote desktop software is running and hook it, but cann
 However, killing such software remotely and letting it run again is an effective workaround as the tool will detect and hook it immediately.
 
 ### Remote desktop software support
-Note that it is this list is not exhaustive of all remote desktop software and that this tool does not aim to have support for everything. If specific software becomes used by scammers enough to be notable, it will be placed on this list and eventually supported as applicable.
+Note that this list is not exhaustive of all remote desktop software and that this tool does not aim to have support for everything. If specific software becomes used by scammers enough to be notable, it will be placed on this list and eventually supported as applicable.
 
 Outright malicious remote access tools (RATs) are not planned for investigation at this time but could be supported in the future if needed.
 | Software | Status | Remarks |
 | --- | :---: | --- |
-| [AnyDesk](https://anydesk.com/) | :x: | Input blocking can be turned off by normal means |
+| [AnyDesk](https://anydesk.com/) | :x: | Planned for investigation (low priority) |
 | [AweSun/AweRay Remote](https://sun.aweray.com/) | N/A | Can blank screen, but doesn't seem to support blocking input |
-| [Chrome Remote Desktop](https://remotedesktop.google.com) | :x: | Planned for investigation (low priority); requires Google login on both sides |
+| [Chrome Remote Desktop](https://remotedesktop.google.com) | :x: | Investigation currently blocked (requires Google login on both sides) (low priority) |
 | [ConnectWise ScreenConnect](https://screenconnect.connectwise.com/) | ✔️ | Fully supported, 64-bit |
-| [GoToMyPC](https://get.gotomypc.com/) | :x: | Planned for investigation (low priority), paid service |
-| [LogMeInRescue](https://www.logmeinrescue.com/)/[LogMeIn123](https://secure.logmeinrescue.com/customer/code.aspx) | :x: | Planned for investigation; paid service but seems to be somewhat common among tech support scammers. |
+| [GoToMyPC](https://get.gotomypc.com/) | :x: | Investigation currently blocked (paid service) (low priority) |
+| [LogMeInRescue](https://www.logmeinrescue.com/)/[LogMeIn123](https://secure.logmeinrescue.com/customer/code.aspx) | :x: | Investigation currently blocked (paid service) |
 | [Quick Assist](https://apps.microsoft.com/detail/quick-assist/9P7BP5VNWKX5) | :x: | Planned for investigation (low priority) |
 | [Remote Utilities](https://www.remoteutilities.com/) | ✔️ | Fully supported, 32-bit |
 | [RustDesk](https://rustdesk.com/) | :x: | Planned for investigation |
