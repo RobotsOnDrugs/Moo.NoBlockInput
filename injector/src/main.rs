@@ -1,3 +1,6 @@
+#![deny(clippy::implicit_return)]
+#![allow(clippy::needless_return)]
+
 #![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 
 use std::path::Path;
@@ -5,6 +8,7 @@ use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
 use std::collections::HashSet;
+use std::string::ToString;
 
 use dll_syringe::Syringe;
 use dll_syringe::process::{BorrowedProcessModule, Process};
@@ -41,7 +45,9 @@ const HOOK_TARGETS: [&str; 2] = ["rfusclient.exe", "Supremo.exe"];
 
 fn main()
 {
-	let hook_dll_path = get_hook_dll_path();
+	// Changed the signature to set up for future work
+	let hook_dll_path = get_hook_dll_path(Some(HOOK_DLL_NAME.to_string()));
+
 	let mut all_client_processes: HashSet<OwnedProcess> = HashSet::new();
 	for proc_name in HOOK_TARGETS
 	{
@@ -51,6 +57,7 @@ fn main()
 			all_client_processes.insert(client_process);
 		}
 	}
+
 	let all_client_processes = all_client_processes;
 	for client_process in all_client_processes
 	{
@@ -83,8 +90,6 @@ fn main()
 
 fn process_callback(record: &EventRecord, schema_locator: &SchemaLocator)
 {
-	let processes_to_hook = HashSet::from(HOOK_TARGETS);
-	let hook_dll_path = get_hook_dll_path();
 	match schema_locator.event_schema(record)
 	{
 		Ok(schema) =>
@@ -96,9 +101,9 @@ fn process_callback(record: &EventRecord, schema_locator: &SchemaLocator)
 					let process_id: u32 = parser.try_parse("ProcessID").unwrap();
 					let image_name: String = parser.try_parse("ImageName").unwrap();
 					let file_name = Path::new(&image_name).file_name().unwrap();
-					let file_name = file_name.to_str().unwrap();
+					let file_name = file_name.to_str().unwrap().to_string();
 					println!("{} {}", process_id, file_name);
-					if !processes_to_hook.contains(file_name) { return; }
+					if !HOOK_TARGETS.contains(&file_name.as_str()) { return; }
 					unsafe
 						{
 							std::thread::spawn(move ||
@@ -115,6 +120,7 @@ fn process_callback(record: &EventRecord, schema_locator: &SchemaLocator)
 					if owned_sc_client_result.is_err() { return; }
 					let owned_sc_client = owned_sc_client_result.unwrap();
 					let syringe: Syringe = Syringe::for_process(owned_sc_client);
+					let hook_dll_path = get_hook_dll_path(Some(HOOK_DLL_NAME.to_string()));
 					let payload_result = syringe.inject(hook_dll_path);
 					if payload_result.is_err() { println!("{:?}", payload_result.err().unwrap()); return; }
 					println!("{} {} [hooked]", process_id, file_name);
@@ -144,10 +150,13 @@ fn get_result(provider: Provider) -> (UserTrace, TraceHandle)
 	};
 }
 
-fn get_hook_dll_path() -> String
+fn get_hook_dll_path(hook_dll_name: Option<String>) -> String
 {
-	let hook_dll_path: PathBuf = std::env::current_exe().unwrap();
-	let hook_dll_path: &Path = hook_dll_path.as_path().parent().unwrap();
-	let hook_dll_path: PathBuf = hook_dll_path.join(HOOK_DLL_NAME);
-	return String::from(hook_dll_path.to_str().unwrap());
+	let exe_path: PathBuf = std::env::current_exe().unwrap();
+	let cwd = Path::new(&exe_path).parent().unwrap();
+	return match hook_dll_name
+	{
+		Some(name) => String::from(cwd.join(name).to_str().unwrap()),
+		None => String::from(exe_path.with_extension("dll").to_str().unwrap())
+	}
 }
