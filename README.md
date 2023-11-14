@@ -24,8 +24,8 @@ Outright malicious remote access tools (RATs) are not planned for investigation 
 | [AweSun/AweRay Remote](https://sun.aweray.com/) | ➖ | Can blank screen, but doesn't seem to support blocking input |
 | [Chrome Remote Desktop](https://remotedesktop.google.com) | :x: | Investigation currently blocked (requires Google login on both sides) (low priority) |
 | [ConnectWise ScreenConnect](https://screenconnect.connectwise.com/) | ✔️ | Fully supported, 64-bit |
-| [GoToMyPC](https://get.gotomypc.com/) | :x: | Investigation currently blocked (paid service) (low priority) |
-| [LogMeInRescue](https://www.logmeinrescue.com/)/[LogMeIn123](https://secure.logmeinrescue.com/customer/code.aspx) | :x: | Investigation currently blocked (paid service) |
+| [GoToMyPC](https://get.gotomypc.com/) | ✖️ | Only some uncommon and expensive variations of GoToWhatever can block input, so this is low priority |
+| [LogMeInRescue](https://www.logmeinrescue.com/)/[LogMeIn123](https://secure.logmeinrescue.com/customer/code.aspx) | ✖️ | The standard version doesn't support blocking input, and the pro version which does is expensive and seems to be uncommon, so this is low priority |
 | [Quick Assist](https://apps.microsoft.com/detail/quick-assist/9P7BP5VNWKX5) | :x: | Planned for investigation (low priority) |
 | [Remote Utilities](https://www.remoteutilities.com/) | ✔️ | Fully supported, 32-bit |
 | [RustDesk](https://rustdesk.com/) | :x: | Planned for investigation |
