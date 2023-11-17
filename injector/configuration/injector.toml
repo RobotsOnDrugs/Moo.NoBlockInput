@@ -1,0 +1,16 @@
+# The hook_dll_name fields are optional. If not specified, the injector will look for a dll with the same base name as itself with a .dll extension
+# e.g., an injector named injsvc.exe will look for injsvc.dll.
+# The trace name can be anything you like that is not already in use by the system.
+# The processes are the names of the exact processes that call BlockInput(). The defaults are known to be culprits, but you can add your own for other remote desktop software. Don't get the bitness wrong.
+
+# Important: do not use the same name for both x64 and x86 for any of these fields. You WILL run into to issues running both injectors if you do.
+
+[x64]
+# hook_dll_name = "noblock_input_hook.dll"
+trace_name = "NoBlockInput"
+processes = ["ScreenConnect.WindowsClient.exe"]
+
+[x86]
+# hook_dll_name = "noblock_input_hook_x86.dll"
+trace_name = "NoBlockInput_x86"
+processes = ["rfusclient.exe", "Supremo.exe"]

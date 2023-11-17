@@ -12,6 +12,6 @@ fn main()
 		.max_version_tested(MaxVersionTested::Windows11Version22H2)
 		.name("NoBlockInput Injector")
 		.requested_execution_level(ExecutionLevel::RequireAdministrator)
-		.version(0, 3, 0, 0);
+		.version(0, 4, 0, 0);
 	embed_manifest(manifest_builder).expect("Couldn't embed manifest.");
 }

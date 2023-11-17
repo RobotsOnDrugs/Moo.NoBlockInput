@@ -30,7 +30,8 @@ if ($LASTEXITCODE -eq 0) { cargo.exe build --target=i686-pc-windows-msvc --$rele
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $x86_path = ".\target\i686-pc-windows-msvc\$release_type"
 $x64_path = ".\target\x86_64-pc-windows-msvc\$release_type"
-Copy-Item $x86_path\noblock_input_hook.dll $output_dir\noblock_input_hook_x86.dll
-Copy-Item $x86_path\noblock_input_hook_injector.exe $output_dir\noblock_input_hook_injector_x86.exe
-Copy-Item $x64_path\noblock_input_hook.dll $output_dir\noblock_input_hook.dll
-Copy-Item $x64_path\noblock_input_hook_injector.exe $output_dir\noblock_input_hook_injector.exe
+Copy-Item $x86_path\noblock_input_hook.dll $output_dir\noblock_input32.dll
+Copy-Item $x86_path\noblock_input_hook_injector.exe $output_dir\noblock_input32.exe
+Copy-Item $x64_path\noblock_input_hook.dll $output_dir\noblock_input.dll
+Copy-Item $x64_path\noblock_input_hook_injector.exe $output_dir\noblock_input.exe
+Copy-Item .\injector\configuration\injector.toml $output_dir\injector.toml
