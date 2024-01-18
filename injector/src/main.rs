@@ -1,6 +1,5 @@
 #![deny(clippy::implicit_return)]
 #![allow(clippy::needless_return)]
-
 #![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 
 use std::collections::HashSet;
@@ -13,6 +12,7 @@ use std::time::Duration;
 use std::io::Read;
 use std::process::exit;
 use std::string::ToString;
+use std::sync::mpsc;
 
 use dll_syringe::Syringe;
 use dll_syringe::process::BorrowedProcessModule;
@@ -25,6 +25,7 @@ use ferrisetw::EventRecord;
 use ferrisetw::native::TraceHandle;
 use ferrisetw::native::EvntraceNativeError;
 use ferrisetw::parser::Parser;
+use ferrisetw::provider::EventFilter;
 use ferrisetw::provider::Provider;
 use ferrisetw::schema_locator::SchemaLocator;
 use ferrisetw::trace::RealTimeTraceTrait;
@@ -47,6 +48,7 @@ struct FullConfig
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct InjectorConfig
 {
 	hook_dll_name: Option<String>,
@@ -82,10 +84,11 @@ fn main()
 	#[cfg(target_arch = "x86")]
 	let configuration = injector_config.x86;
 
-	let hook_dll_name = configuration.hook_dll_name;
+	let hook_dll_name = &configuration.hook_dll_name;
 	// Changed the signature to set up for future work
-	let hook_dll_path = get_hook_dll_path(&hook_dll_name);
-	env::set_var("NOBLOCKINPUT_DLL_PATH", &hook_dll_path);
+	let hook_dll_path = get_hook_dll_path(hook_dll_name);
+	let hook_dll_path = hook_dll_path.as_str();
+	env::set_var("NOBLOCKINPUT_DLL_PATH", hook_dll_path);
 	env::set_var("NOBLOCKINPUT_TRACE_NAME", configuration.trace_name);
 
 	let mut all_client_processes: HashSet<OwnedProcess> = HashSet::new();
@@ -99,17 +102,25 @@ fn main()
 	}
 	env::set_var("NOBLOCKINPUT_PROCESSES", configuration.processes.join(";"));
 
+	let mut hooked_processes: Vec<u32> = vec![];
+	let (tx, rx) = mpsc::channel::<Vec<u32>>();
 	let all_client_processes = all_client_processes;
 	for client_process in all_client_processes
 	{
+		let pid = client_process.pid().unwrap();
 		let syringe: Syringe = Syringe::for_process(client_process);
-		let _payload: BorrowedProcessModule = syringe.inject(hook_dll_path.as_str()).unwrap();
+		hooked_processes.push(u32::from(pid));
+		let _payload: BorrowedProcessModule = syringe.inject(hook_dll_path).unwrap();
 		let pid_result = syringe.process().pid();
 		let name_result = syringe.process().base_name();
 		println!("{:?} {:?} [hooked existing]", pid_result.unwrap(), name_result.unwrap());
 	}
+	tx.send(hooked_processes).unwrap();
 
-	let process_provider = Provider::by_guid(MICROSOFT_WINDOWS_KERNEL_PROCESS_PROVIDER).add_callback(process_callback).build();
+	let process_provider = Provider::by_guid(MICROSOFT_WINDOWS_KERNEL_PROCESS_PROVIDER)
+		.add_filter(EventFilter::ByEventIds(vec![1]))
+		.add_callback(process_callback)
+		.build();
 
 	let (user_trace, handle) = get_result(process_provider);
 	let name = user_trace.trace_name();
@@ -127,12 +138,32 @@ fn main()
 	ctrlc::set_handler(move ||
 	{
 		let trace_name = env::var("NOBLOCKINPUT_TRACE_NAME").expect("TRACE_NAME wasn't previously set.");
+		let dll_path = env::var("NOBLOCKINPUT_DLL_PATH").expect("NOBLOCKINPUT_DLL_PATH wasn't previously set.");
 		let stopped_trace_result = stop_trace_by_name(trace_name.as_str());
 		let err_code = match stopped_trace_result
 		{
 			Ok(()) => 0,
 			Err(_) => -1
 		};
+		let hooked_processes = rx.recv().unwrap();
+		for pid in hooked_processes
+		{
+			let process = OwnedProcess::from_pid(pid).unwrap();
+			let module = process.find_module_by_path(dll_path.as_str()).unwrap().unwrap();
+			let syringe: Syringe = Syringe::for_process(process);
+			let module = syringe.eject(module.borrowed());
+			match module
+			{
+				Ok(_) =>
+				{
+					println!("Successfully ejected module from {:?} (pid {})", &syringe.process().base_name().unwrap(), pid);
+				},
+				Err(err) =>
+				{
+					println!("Failed to eject module from {:?} (pid {}): {}", &syringe.process().base_name().unwrap(), pid, err);
+				}
+			}
+		}
 		exit(err_code);
 	}).expect("Error setting Ctrl-C handler");
 
@@ -150,7 +181,10 @@ fn get_result(provider: Provider) -> (UserTrace, TraceHandle)
 		{
 			EvntraceNativeError::AlreadyExist =>
 				{
-					let provider = Provider::by_guid(MICROSOFT_WINDOWS_KERNEL_PROCESS_PROVIDER).add_callback(process_callback).build();
+					let provider = Provider::by_guid(MICROSOFT_WINDOWS_KERNEL_PROCESS_PROVIDER)
+						.add_filter(EventFilter::ByEventIds(vec![1]))
+						.add_callback(process_callback)
+						.build();
 					stop_trace_by_name(&trace_name).expect("Couldn't stop existing trace.");
 					return UserTrace::new().named(String::from(&trace_name)).enable(provider).start().unwrap();
 				},
@@ -168,39 +202,32 @@ fn process_callback(record: &EventRecord, schema_locator: &SchemaLocator)
 	{
 		Ok(schema) =>
 		{
-			let event_id = record.event_id();
-			if event_id == 1
+			let parser = Parser::create(record, &schema);
+			let process_id: u32 = parser.try_parse("ProcessID").unwrap();
+			let image_name: String = parser.try_parse("ImageName").unwrap();
+			let file_name = Path::new(&image_name).file_name().unwrap();
+			let file_name = file_name.to_str().unwrap().to_string();
+			if !hook_targets.contains(&file_name.as_str()) { return; }
+			unsafe
 			{
-				let parser = Parser::create(record, &schema);
-				let process_id: u32 = parser.try_parse("ProcessID").unwrap();
-				let image_name: String = parser.try_parse("ImageName").unwrap();
-				let file_name = Path::new(&image_name).file_name().unwrap();
-				let file_name = file_name.to_str().unwrap().to_string();
-				if !hook_targets.contains(&file_name.as_str()) { return; }
-				unsafe
+				std::thread::spawn(move ||
 				{
-					std::thread::spawn(move ||
-					{
-						let attachment_result = DebugActiveProcess(process_id);
-						// Sometimes the process is crashy and dies very quickly and it's better to just ignore it and move on
-						if attachment_result.is_err() { return; }
-						sleep(Duration::from_millis(1000));
-						DebugActiveProcessStop(process_id).unwrap();
-					});
-				}
-				// Same here: if the process goes bye-bye when we want to own it or inject into it, we march on
-				let owned_sc_client_result = OwnedProcess::from_pid(process_id);
-				if owned_sc_client_result.is_err() { return; }
-				let owned_sc_client = owned_sc_client_result.unwrap();
-				let syringe: Syringe = Syringe::for_process(owned_sc_client);
-				let dll_path = env::var("NOBLOCKINPUT_DLL_PATH").expect("DLL_PATH was not previously set");
-				let payload_result = syringe.inject(dll_path);
-				if payload_result.is_err() {
-					println!("{:?}", payload_result.err().unwrap());
-					return;
-				}
-				println!("{} {} [hooked]", process_id, file_name);
+					let attachment_result = DebugActiveProcess(process_id);
+					// Sometimes the process is crashy and dies very quickly and it's better to just ignore it and move on
+					if attachment_result.is_err() { return; }
+					sleep(Duration::from_millis(1000));
+					DebugActiveProcessStop(process_id).unwrap();
+				});
 			}
+			// Same here: if the process goes bye-bye when we want to own it or inject into it, we march on
+			let owned_sc_client_result = OwnedProcess::from_pid(process_id);
+			if owned_sc_client_result.is_err() { return; }
+			let owned_sc_client = owned_sc_client_result.unwrap();
+			let syringe: Syringe = Syringe::for_process(owned_sc_client);
+			let dll_path = env::var("NOBLOCKINPUT_DLL_PATH").expect("DLL_PATH was not previously set");
+			let payload_result = syringe.inject(dll_path);
+			if payload_result.is_err() { println!("{:?}", payload_result.err().unwrap()); return; }
+			println!("{} {} [hooked]", process_id, file_name);
 		},
 		Err(err) => println!("Error {:?}", err)
 	}

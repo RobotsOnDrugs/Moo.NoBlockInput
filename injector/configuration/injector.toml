@@ -13,4 +13,4 @@ processes = ["ScreenConnect.WindowsClient.exe"]
 [x86]
 # hook_dll_name = "noblock_input_hook_x86.dll"
 trace_name = "NoBlockInput_x86"
-processes = ["rfusclient.exe", "Supremo.exe"]
+processes = ["rfusclient.exe", "Supremo.exe", "AnyDesk.exe"]
