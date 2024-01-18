@@ -1,9 +1,6 @@
 #![deny(clippy::implicit_return)]
 #![allow(clippy::needless_return)]
 
-use std::fs::OpenOptions;
-use std::io::Write;
-
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
 use windows::core::PCSTR;
@@ -67,18 +64,10 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) 
 {
 	if call_reason == DLL_PROCESS_ATTACH
 	{
-		let mut out_file = OpenOptions::new().append(true).open(r#"C:\Users\iamtheclaw\source\repos\Moo\Moo.NoBlockInput\test.txt"#).unwrap();
-		let msg = "Started hook.\n";
-		out_file.write_all(msg.as_bytes()).unwrap();
-		out_file.flush().unwrap();
 		unsafe
 		{
-			BlockInput_hook.disable().unwrap();
-			SendInput_hook.disable().unwrap();
-			let send_file = OpenOptions::new().read(true).open(r#"C:\Users\iamtheclaw\source\repos\Moo\Moo.NoBlockInput\send"#);
-			if send_file.is_ok() { SendInput_hook.enable().unwrap(); }
-			let block_file = OpenOptions::new().read(true).open(r#"C:\Users\iamtheclaw\source\repos\Moo\Moo.NoBlockInput\block"#);
-			if block_file.is_ok() { BlockInput_hook.enable().unwrap(); }
+			SendInput_hook.enable().unwrap();
+			BlockInput_hook.enable().unwrap();
 		}
 	}
 	else if call_reason == DLL_PROCESS_DETACH
