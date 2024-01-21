@@ -7,11 +7,11 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-retour = "0.4.0-alpha.1"
-once_cell = "1.18"
+retour = "0.4.0-alpha.2"
+once_cell = "1.19"
 
 [dependencies.windows]
-version = "0.51"
+version = "0.52"
 features = [
 	"Win32_Foundation",
 	"Win32_System_SystemServices",
