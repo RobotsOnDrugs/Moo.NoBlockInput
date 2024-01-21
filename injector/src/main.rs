@@ -35,8 +35,8 @@ use windows::Win32::System::Diagnostics::Debug::DebugActiveProcess;
 use windows::Win32::System::Diagnostics::Debug::DebugActiveProcessStop;
 
 const MICROSOFT_WINDOWS_KERNEL_PROCESS_PROVIDER: &str = "22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716";
-const PROCESS_START: u16 = 1;
-const PROCESS_STOP: u16 = 2;
+const IMAGE_LOAD: u16 = 5;
+const IMAGE_UNLOAD: u16 = 6;
 
 #[derive(Debug, Deserialize, Clone)]
 #[allow(dead_code)]
@@ -127,7 +127,7 @@ fn main()
 					let file_name = Path::new(&image_name).file_name().unwrap();
 					let file_name = file_name.to_str().unwrap().to_string();
 					if !configuration.processes.contains(&file_name) { return; }
-					if record.event_id() == PROCESS_STOP
+					if record.event_id() == IMAGE_UNLOAD
 					{
 						hooked_processes.remove(&process_id);
 						println!("{} {} [process exited]\n-----", process_id, file_name);
@@ -172,7 +172,7 @@ fn main()
 	};
 
 	let process_provider = Provider::by_guid(MICROSOFT_WINDOWS_KERNEL_PROCESS_PROVIDER)
-		.add_filter(EventFilter::ByEventIds(vec![PROCESS_START, PROCESS_STOP])) // ProcessStart and ProcessStop events
+		.add_filter(EventFilter::ByEventIds(vec![IMAGE_LOAD, IMAGE_UNLOAD])) // ProcessStart and ProcessStop events
 		.add_callback(process_callback)
 		.build();
 
