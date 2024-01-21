@@ -19,3 +19,4 @@ features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Diagnost
 
 [build-dependencies]
 embed-manifest = "1.4"
+winresource = "0.1.17"

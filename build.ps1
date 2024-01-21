@@ -1,4 +1,5 @@
 # Requires pwsh (7.0+) and won't work on PowerShell 5 (for the conditional syntax; could be made compatible if necessary)
+# Also requires cargo for obvious reasons
 # Uses i686-pc-windows-msvc for 32-bit and x86_64-pc-windows-msvc for 64-bit
 # You could probably use the mingw variants or whatever instead if you really needed to, but I only test msvc builds
 
@@ -12,10 +13,20 @@
   Optional. Specifies whether to produce a debug build, located in .\build\debug. If omitted, a release build is generated.
   .PARAMETER Clean
   Optional. Specifies whether to fully clean (run `cargo clean`) before building. If omitted, no cleaning is performed.
+  .PARAMETER FileDescription <Description>
+  Optional. Specifies the value of FileDescription in the binary's manifest, which is what is displayed in Task Manager
+ #>
+ #>
 #>
 
-param([Switch]$BuildDebug, [Switch]$Clean)
+param([Switch]$BuildDebug, [Switch]$Clean, [Parameter()][string]$FileDescription)
 $ErrorActionPreference = 'Stop'
+$injector_version = (cargo.exe read-manifest --manifest-path .\injector\Cargo.toml | ConvertFrom-Json).version
+$hook_version = (cargo.exe read-manifest --manifest-path .\hook\Cargo.toml | ConvertFrom-Json).version
+if ($injector_version -ne $hook_version)
+{
+    throw 'Injector version "${injector_version}" did not match hook version ${hook_version}. Fix the manifests.'
+}
 
 $release_type = ($BuildDebug ? "debug" : "release" )
 $release_switch = ($BuildDebug ? "" : "release" )
@@ -24,7 +35,10 @@ $output_dir = ".\build\$release_type"
 Remove-Item -Recurse -Force -Path $output_dir -ErrorAction SilentlyContinue | Out-Null
 New-Item -Type Directory $output_dir | Out-Null
 
+$env:BINARY_FILE_DESCRIPTION=$FileDescription
+
 if ($Clean) { cargo.exe clean }
+else { cargo.exe clean -r -p noblock_input_hook; cargo clean -r -p noblock_input_hook_injector; }
 if ($LASTEXITCODE -eq 0) { cargo.exe build --target=x86_64-pc-windows-msvc --$release_switch }
 if ($LASTEXITCODE -eq 0) { cargo.exe build --target=i686-pc-windows-msvc --$release_switch }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

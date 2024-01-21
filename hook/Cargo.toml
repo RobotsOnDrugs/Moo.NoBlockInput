@@ -22,3 +22,6 @@ features = [
 	"Win32_UI_Input_KeyboardAndMouse",
 	"Win32_System_Threading"
 ]
+
+[build-dependencies]
+winresource = "0.1.17"
