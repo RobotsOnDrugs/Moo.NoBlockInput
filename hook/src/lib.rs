@@ -4,6 +4,8 @@
 use once_cell::sync::Lazy;
 use retour::GenericDetour;
 use windows::core::PCSTR;
+#[cfg(debug_assertions)]
+use windows::Win32::System::Console::{AllocConsole, FreeConsole};
 use windows::Win32::Foundation::BOOL;
 use windows::Win32::Foundation::HINSTANCE;
 use windows::Win32::System::LibraryLoader::GetProcAddress;
@@ -14,9 +16,9 @@ use windows::Win32::UI::Input::KeyboardAndMouse::BlockInput;
 use windows::Win32::UI::Input::KeyboardAndMouse::INPUT;
 
 // This code is mostly a modified copy-paste of the MessageBoxA example from the
-// retour-rs repo I won't pretend to deeply understand retour-rs or Windows API
-// hooking in general If you have more experience with Rust (especially unsafe
-// Rust) and have suggestions for improvement, please let me know
+// retour-rs repo. I won't pretend to deeply understand retour-rs or Windows API
+// hooking in general. If you have more experience with Rust (especially unsafe
+// Rust) and have suggestions for improvement, please let me know.
 
 #[allow(non_camel_case_types)]
 type BlockInput_signature = extern "system" fn(BOOL) -> BOOL;
@@ -68,6 +70,17 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) 
 		{
 			SendInput_hook.enable().unwrap();
 			BlockInput_hook.enable().unwrap();
+			#[cfg(debug_assertions)]
+			{
+				let console = AllocConsole();
+				match console
+				{
+					Ok(_) => { println!("Allocating console was successful."); }
+					// I've played with AllocConsole in .NET and gotten a console creation despite an error, so it could still work.
+					// I won't bother with GetLastError (and potentially writing to a file if there is no console) unless I start seeing errors when used in this program.
+					Err(_) => { eprintln!("Error allocating console."); }
+				};
+			}
 		}
 	}
 	else if call_reason == DLL_PROCESS_DETACH
@@ -76,6 +89,8 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) 
 		{
 			BlockInput_hook.disable().unwrap();
 			SendInput_hook.disable().unwrap();
+			#[cfg(debug_assertions)]
+			FreeConsole().unwrap();
 		}
 	}
 	return true;

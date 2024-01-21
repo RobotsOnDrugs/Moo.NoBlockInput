@@ -209,7 +209,10 @@ fn main()
 			}
 			for pid in hooked_processes
 			{
-				let process = OwnedProcess::from_pid(pid).unwrap();
+				let process = OwnedProcess::from_pid(pid);
+				// ScreenConnect service process exit events are apparently not captured, so the workaround is to just ignore PIDs that are gone
+				if process.is_err() { continue; }
+				let process = process.unwrap();
 				let module = process.find_module_by_path(dll_path.as_str()).unwrap().unwrap();
 				let syringe: Syringe = Syringe::for_process(process);
 				let module = syringe.eject(module.borrowed());
