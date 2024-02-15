@@ -2,24 +2,21 @@
 #![allow(clippy::needless_return)]
 #![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 
+mod configuration;
+use crate::configuration::InjectorConfig;
+
 use std::collections::HashSet;
-use std::env;
-use std::fs::File;
 use std::path::Path;
-use std::path::PathBuf;
-use std::thread::sleep;
-use std::time::Duration;
-use std::io::Read;
 use std::process::exit;
 use std::string::ToString;
 use std::sync::mpsc;
+use std::thread::sleep;
+use std::time::Duration;
 
 use dll_syringe::Syringe;
 use dll_syringe::process::BorrowedProcessModule;
 use dll_syringe::process::Process;
 use dll_syringe::process::OwnedProcess;
-
-use serde::Deserialize;
 
 use ferrisetw::EventRecord;
 use ferrisetw::parser::Parser;
@@ -38,53 +35,16 @@ const MICROSOFT_WINDOWS_KERNEL_PROCESS_PROVIDER: &str = "22fb2cd6-0e7b-422b-a0c7
 const IMAGE_LOAD: u16 = 5;
 const IMAGE_UNLOAD: u16 = 6;
 
-#[derive(Debug, Deserialize, Clone)]
-#[allow(dead_code)]
-struct FullConfig
-{
-	x64: InjectorConfig,
-	x86: InjectorConfig
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[allow(dead_code)]
-struct InjectorConfig
-{
-	hook_dll_name: Option<String>,
-	trace_name: String,
-	processes: Vec<String>
-}
-
 fn main()
 {
-	let toml_file = File::open("injector.toml");
-	let mut toml_file = match toml_file
+	let configuration = InjectorConfig::try_new(None, None);
+	let configuration = match configuration
 	{
-		Ok(file) => file,
-		Err(err) => { println!("Couldn't open the injector configuration file: {err}"); return; }
-	};
-	let mut config_toml = String::new();
-	let toml_read_result = toml_file.read_to_string(&mut config_toml);
-	match toml_read_result
-	{
-		Ok(_) => { },
-		Err(err) => { println!("Couldn't read the injector configuration file: {err}"); return; }
-	};
-	let toml_str = config_toml.as_str();
-	let injector_config: Result<FullConfig, toml::de::Error> = toml::from_str(toml_str);
-	let injector_config = match injector_config
-	{
-		Ok(config) => config,
-		Err(err) => { println!("Couldn't parse the injector configuration file: {err}"); return; }
+		None => { exit(-1); }
+		Some(config) => { config }
 	};
 
-	#[cfg(target_arch = "x86_64")]
-	let configuration = injector_config.x64;
-	#[cfg(target_arch = "x86")]
-	let configuration = injector_config.x86;
-
-	let hook_dll_name = &configuration.hook_dll_name;
-	let hook_dll_path = get_hook_dll_path(hook_dll_name);
+	let hook_dll_path = configuration.hook_dll_path.to_owned();
 	let hook_dll_path = hook_dll_path.as_str();
 
 	let mut all_client_processes: HashSet<OwnedProcess> = HashSet::new();
@@ -120,59 +80,59 @@ fn main()
 		match schema_locator.event_schema(record)
 		{
 			Ok(schema) =>
+			{
+				let parser = Parser::create(record, &schema);
+				let process_id: u32 = parser.try_parse("ProcessID").unwrap();
+				let image_name: String = parser.try_parse("ImageName").unwrap();
+				let file_name = Path::new(&image_name).file_name().unwrap();
+				let file_name = file_name.to_str().unwrap().to_string();
+				if !configuration.processes.contains(&file_name) { return; }
+				if record.event_id() == IMAGE_UNLOAD
 				{
-					let parser = Parser::create(record, &schema);
-					let process_id: u32 = parser.try_parse("ProcessID").unwrap();
-					let image_name: String = parser.try_parse("ImageName").unwrap();
-					let file_name = Path::new(&image_name).file_name().unwrap();
-					let file_name = file_name.to_str().unwrap().to_string();
-					if !configuration.processes.contains(&file_name) { return; }
-					if record.event_id() == IMAGE_UNLOAD
-					{
-						hooked_processes.remove(&process_id);
-						println!("{} {} [process exited]\n-----", process_id, file_name);
-						ctrl_c_tx.send(hooked_processes.clone()).unwrap();
-						return;
-					}
-					unsafe
-						{
-							std::thread::spawn(move ||
-								{
-									let attachment_result = DebugActiveProcess(process_id);
-									// Sometimes the process is crashy and dies very quickly and it's better to just ignore it and move on
-									if attachment_result.is_err() { return; }
-									sleep(Duration::from_millis(1000));
-									DebugActiveProcessStop(process_id).unwrap();
-								});
-						}
-					let owned_sc_client_result = OwnedProcess::from_pid(process_id);
-					// Same here: if the process goes bye-bye when we want to own it or inject into it, we march on
-					if owned_sc_client_result.is_err() { return; }
-					let owned_sc_client = owned_sc_client_result.unwrap();
-					let syringe: Syringe = Syringe::for_process(owned_sc_client);
-					let dll_path = get_hook_dll_path(&configuration.hook_dll_name);
-					let payload_result = syringe.inject(dll_path);
-					if payload_result.is_err()
-					{
-						println!("{:?}", payload_result.err().unwrap());
-						return;
-					}
-					println!("{} {} [hooked in callback]", process_id, file_name);
-					println!("-----");
-					hooked_processes.insert(process_id);
-					for proc in &hooked_processes
-					{
-						println!("Hooked PID: {}", proc);
-					}
-					println!("-----");
+					hooked_processes.remove(&process_id);
+					println!("{} {} [process exited]\n-----", process_id, file_name);
 					ctrl_c_tx.send(hooked_processes.clone()).unwrap();
-				},
+					return;
+				}
+				unsafe
+					{
+						std::thread::spawn(move ||
+							{
+								let attachment_result = DebugActiveProcess(process_id);
+								// Sometimes the process is crashy and dies very quickly and it's better to just ignore it and move on
+								if attachment_result.is_err() { return; }
+								sleep(Duration::from_millis(1000));
+								DebugActiveProcessStop(process_id).unwrap();
+							});
+					}
+				let owned_sc_client_result = OwnedProcess::from_pid(process_id);
+				// Same here: if the process goes bye-bye when we want to own it or inject into it, we march on
+				if owned_sc_client_result.is_err() { return; }
+				let owned_sc_client = owned_sc_client_result.unwrap();
+				let syringe: Syringe = Syringe::for_process(owned_sc_client);
+				let dll_path = configuration.hook_dll_path.to_owned();
+				let payload_result = syringe.inject(dll_path);
+				if payload_result.is_err()
+				{
+					println!("{:?}", payload_result.err().unwrap());
+					return;
+				}
+				println!("{} {} [hooked in callback]", process_id, file_name);
+				println!("-----");
+				hooked_processes.insert(process_id);
+				for proc in &hooked_processes
+				{
+					println!("Hooked PID: {}", proc);
+				}
+				println!("-----");
+				ctrl_c_tx.send(hooked_processes.clone()).unwrap();
+			}
 			Err(err) => println!("Error {:?}", err)
 		}
 	};
 
 	let process_provider = Provider::by_guid(MICROSOFT_WINDOWS_KERNEL_PROCESS_PROVIDER)
-		.add_filter(EventFilter::ByEventIds(vec![IMAGE_LOAD, IMAGE_UNLOAD])) // ProcessStart and ProcessStop events
+		.add_filter(EventFilter::ByEventIds(vec![IMAGE_LOAD, IMAGE_UNLOAD]))
 		.add_callback(process_callback)
 		.build();
 
@@ -213,19 +173,19 @@ fn main()
 				// ScreenConnect service process exit events are apparently not captured, so the workaround is to just ignore PIDs that are gone
 				if process.is_err() { continue; }
 				let process = process.unwrap();
-				let module = process.find_module_by_path(dll_path.as_str()).unwrap().unwrap();
+				let module = process.find_module_by_path(dll_path).unwrap().unwrap();
 				let syringe: Syringe = Syringe::for_process(process);
 				let module = syringe.eject(module.borrowed());
 				match module
 				{
 					Ok(_) =>
-						{
-							println!("Successfully ejected module from {:?} (pid {})", &syringe.process().base_name().unwrap(), pid);
-						},
-					Err(err) =>
-						{
-							eprintln!("Failed to eject module from {:?} (pid {}): {:?}", &syringe.process().base_name().unwrap(), pid, err);
-						}
+					{
+						println!("Successfully ejected module from {:?} (pid {})", &syringe.process().base_name().unwrap(), pid);
+					},
+				Err(err) =>
+					{
+						eprintln!("Failed to eject module from {:?} (pid {}): {:?}", &syringe.process().base_name().unwrap(), pid, err);
+					}
 				}
 			}
 			exit(err_code);
@@ -242,15 +202,4 @@ fn main()
 		});
 
 	loop { sleep(Duration::from_millis(10)); }
-}
-
-fn get_hook_dll_path(hook_dll_name: &Option<String>) -> String
-{
-	let exe_path: PathBuf = env::current_exe().unwrap();
-	let cwd = Path::new(&exe_path).parent().unwrap();
-	return match hook_dll_name
-	{
-		Some(name) => String::from(cwd.join(name).to_str().unwrap()),
-		None => String::from(exe_path.with_extension("dll").to_str().unwrap())
-	}
 }

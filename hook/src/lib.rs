@@ -1,8 +1,12 @@
 #![deny(clippy::implicit_return)]
 #![allow(clippy::needless_return)]
 
+use std::io::Result;
+
 use once_cell::sync::Lazy;
+
 use retour::GenericDetour;
+
 use windows::core::PCSTR;
 #[cfg(debug_assertions)]
 use windows::Win32::System::Console::{AllocConsole, FreeConsole};
@@ -13,12 +17,16 @@ use windows::Win32::System::LibraryLoader::LoadLibraryA;
 use windows::Win32::System::SystemServices::DLL_PROCESS_ATTACH;
 use windows::Win32::System::SystemServices::DLL_PROCESS_DETACH;
 use windows::Win32::UI::Input::KeyboardAndMouse::BlockInput;
-use windows::Win32::UI::Input::KeyboardAndMouse::INPUT;
 
-// This code is mostly a modified copy-paste of the MessageBoxA example from the
-// retour-rs repo. I won't pretend to deeply understand retour-rs or Windows API
-// hooking in general. If you have more experience with Rust (especially unsafe
-// Rust) and have suggestions for improvement, please let me know.
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::SendInput;
+
+use winreg::enums::HKEY_LOCAL_MACHINE;
+use winreg::RegKey;
+
+const NBI_REGISTRY_PATH: &str = r#"SOFTWARE\Moo\NoBlockInput"#;
+const BLOCKINPUT_HOOK_ENABLE_NAME: &str = "BlockInputHookEnabled";
+const SENDINPUT_HOOK_ENABLE_NAME: &str = "SendInputHookEnabled";
 
 #[allow(non_camel_case_types)]
 type BlockInput_signature = extern "system" fn(BOOL) -> BOOL;
@@ -44,21 +52,63 @@ static SendInput_hook: Lazy<GenericDetour<SendInput_signature>> =
 		return unsafe { GenericDetour::new(ori, SendInput_detour).unwrap() };
 	});
 
-/// This assumes all was well and returns fBlockIt even if the call was not
-/// successful. Probably should handle that, but meh.
+/// This assumes all was well and returns fBlockIt even if the call was not successful.
+/// Probably should handle that, but meh.
+/// The default is to enable the hook when there is an error.
 #[allow(non_snake_case)]
 extern "system" fn BlockInput_detour(fBlockIt: BOOL) -> BOOL
 {
-	unsafe { BlockInput_hook.disable().unwrap(); }
-	if fBlockIt == BOOL(0)
+	unsafe
 	{
-		unsafe { let _ = BlockInput(BOOL(0)); }
-	};
-	unsafe { BlockInput_hook.enable().unwrap();	}
+		BlockInput_hook.disable().unwrap();
+		match is_hook_enabled(BLOCKINPUT_HOOK_ENABLE_NAME)
+		{
+			// If the hook is enabled, still pass through calls to unblock
+			true => { if fBlockIt == BOOL(0) { let _ = BlockInput(BOOL(0)); }; }
+			false => { let _ = BlockInput(fBlockIt); }
+		}
+		BlockInput_hook.enable().unwrap();
+	}
 	return fBlockIt;
 }
 #[allow(non_snake_case)]
-extern "system" fn SendInput_detour(cInputs: u32, _: *const INPUT, _: i32) -> u32 { return cInputs; }
+extern "system" fn SendInput_detour(cInputs: u32, pInputs: *const INPUT, cbSize: i32) -> u32
+{
+	if is_hook_enabled(SENDINPUT_HOOK_ENABLE_NAME) { return cInputs; }
+	unsafe
+	{
+		SendInput_hook.disable().unwrap();
+		let inputs_processed = SendInput(cInputs, pInputs, cbSize);
+		SendInput_hook.enable().unwrap();
+		return inputs_processed;
+	}
+}
+
+fn is_hook_enabled(reg_value_name: &str) -> bool
+{
+	let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+	let nbi_registry = hklm.open_subkey(NBI_REGISTRY_PATH);
+	return match nbi_registry
+	{
+		Ok(key) =>
+		{
+			let enable_value: Result<u32> = key.get_value(reg_value_name);
+			match enable_value
+			{
+				Ok(val) =>
+				{
+					match val
+					{
+						0u32 => false,
+						_ => true
+					}
+				}
+				Err(_) => { true }
+			}
+		}
+		Err(_) => { true }
+	};
+}
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]
