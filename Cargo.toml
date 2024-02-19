@@ -1,5 +1,5 @@
 [workspace]
-members = [ "hook", "injector" ]
+members = [ "hook", "injector", "common" ]
 resolver = "2"
 
 [profile.release]

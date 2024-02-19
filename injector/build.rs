@@ -1,6 +1,7 @@
 use embed_manifest::embed_manifest;
 use embed_manifest::new_manifest;
 use embed_manifest::manifest::ExecutionLevel;
+
 use winresource::WindowsResource;
 
 fn main()
