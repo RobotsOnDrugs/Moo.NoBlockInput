@@ -10,6 +10,7 @@ use std::string::ToString;
 use std::sync::mpsc;
 use std::thread::sleep;
 use std::time::Duration;
+use dll_syringe::error::InjectError;
 
 use dll_syringe::Syringe;
 use dll_syringe::process::BorrowedProcessModule;
@@ -73,7 +74,26 @@ fn main()
 		let pid = client_process.pid().unwrap();
 		let syringe: Syringe = Syringe::for_process(client_process);
 		hooked_processes.insert(u32::from(pid));
-		let _payload: BorrowedProcessModule = syringe.inject(&hook_dll_path).unwrap();
+		let payload_result: Result<BorrowedProcessModule, InjectError> = syringe.inject(&hook_dll_path);
+		let _payload = match payload_result
+		{
+			Ok(payload) => { payload }
+			Err(err) =>
+			{
+				let module_name = syringe.process().base_name();
+				let module_name = match &module_name
+				{
+					Ok(name) => { name.to_string_lossy() },
+					Err(err) =>
+					{
+						warn!("Could not inject into PID {} (unknown module): {:?}", &pid, err);
+						continue;
+					}
+				};
+				warn!("Could not inject into {module_name} (PID {pid}): {err}");
+				continue;
+			}
+		};
 		let pid_result = syringe.process().pid();
 		let name_result = syringe.process().base_name();
 		let process_name = name_result.unwrap();
@@ -107,16 +127,16 @@ fn main()
 					return;
 				}
 				unsafe
+				{
+					std::thread::spawn(move ||
 					{
-						std::thread::spawn(move ||
-							{
-								let attachment_result = DebugActiveProcess(process_id);
-								// Sometimes the process is crashy and dies very quickly and it's better to just ignore it and move on
-								if attachment_result.is_err() { return; }
-								sleep(Duration::from_millis(1000));
-								DebugActiveProcessStop(process_id).unwrap();
-							});
-					}
+						let attachment_result = DebugActiveProcess(process_id);
+						// Sometimes the process is crashy and dies very quickly and it's better to just ignore it and move on
+						if attachment_result.is_err() { return; }
+						sleep(Duration::from_millis(1000));
+						DebugActiveProcessStop(process_id).unwrap();
+					});
+				}
 				let owned_process_result = OwnedProcess::from_pid(process_id);
 				// Same here: if the process goes bye-bye when we want to own it or inject into it, we march on
 				if owned_process_result.is_err() { return; }
@@ -182,21 +202,29 @@ fn main()
 				continue;
 			}
 			let process = process.unwrap();
-			let module = process.find_module_by_path(dll_path).unwrap().unwrap();
+			let module = process.find_module_by_path(dll_path);
+			let module = match module
+			{
+				Ok(module) => { module }
+				Err(err) => { warn!("Could not find the hook DLL path for PID {pid} at ejection time ({err})."); continue; }
+			};
+			let module = match module
+			{
+				None => { warn!("PID {pid} did not contain the hook DLL at ejection time."); continue; }
+				Some(module) => { module }
+			};
 			let syringe: Syringe = Syringe::for_process(process);
+			let process_name = &syringe.process().base_name();
+			let process_name = match process_name
+			{
+				Ok(name) => { name.to_string_lossy().to_string() }
+				Err(err) => { format!("<unknown> ({err})") }
+			};
 			let module = syringe.eject(module.borrowed());
-			let process_name = &syringe.process().base_name().unwrap();
-			let process_name = process_name.to_string_lossy();
 			match module
 			{
-				Ok(_) =>
-				{
-					info!("Successfully ejected module from {process_name} (PID {pid}).");
-				},
-			Err(err) =>
-				{
-					error!("Failed to eject module from {process_name} (PID {pid}): {:?}", err);
-				}
+				Ok(_) => { info!("Successfully ejected module from {process_name} (PID {pid})."); }
+				Err(err) => { error!("Failed to eject module from {process_name} (PID {pid}): {:?}", err); }
 			}
 		}
 		exit(err_code);

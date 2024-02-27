@@ -11,11 +11,11 @@
 [x64]
 hook_dll_name = ""
 trace_name = "NoBlockInput"
-processes = ["ScreenConnect.WindowsClient.exe"]
+processes = ["ScreenConnect.WindowsClient.exe", "TeamViewer_Desktop.exe", "AweSun.exe"]
 log_directory = ""
 
 [x86]
 hook_dll_name = ""
 trace_name = "NoBlockInput_x86"
-processes = ["rfusclient.exe", "Supremo.exe", "AnyDesk.exe"]
+processes = ["rfusclient.exe", "Supremo.exe", "AnyDesk.exe", "Alpemix.exe", "UltraViewer_Desktop.exe"]
 log_directory = ""
