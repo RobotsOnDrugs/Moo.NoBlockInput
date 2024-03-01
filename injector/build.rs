@@ -17,5 +17,9 @@ fn main()
 		res.set("FileDescription", desc.as_str());
 		res.set("ProductName", desc.as_str());
 	};
-	res.compile().unwrap();
+	match res.compile()
+	{
+		Ok(()) => {}
+		Err(err) => { eprintln!("Something went wrong creating metadata for the injector binaries! {:?}", err); panic!() }
+	};
 }

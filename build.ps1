@@ -23,9 +23,10 @@ param([Switch]$BuildDebug, [Switch]$Clean, [Parameter()][string]$FileDescription
 $ErrorActionPreference = 'Stop'
 $injector_version = (cargo.exe read-manifest --manifest-path .\injector\Cargo.toml | ConvertFrom-Json).version
 $hook_version = (cargo.exe read-manifest --manifest-path .\hook\Cargo.toml | ConvertFrom-Json).version
+$common_version = (cargo.exe read-manifest --manifest-path .\common\Cargo.toml | ConvertFrom-Json).version
 if ($injector_version -ne $hook_version)
 {
-    throw 'Injector version "${injector_version}" did not match hook version ${hook_version}. Fix the manifests.'
+    throw 'Injector version "${injector_version}", hook version ${hook_version}, and common version ${common_version} did not match. Fix the manifests.'
 }
 
 $release_type = ($BuildDebug ? "debug" : "release" )

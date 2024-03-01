@@ -51,9 +51,10 @@ fn main()
 		Ok(configuration) => { configuration }
 		Err(err) => { println!("Could not load configuration: {err}"); exit(-1); }
 	};
-	let logger = create_logger(std::env::current_exe().unwrap(), configuration.log_directory);
-	CombinedLogger::init(logger.loggers).unwrap();
-	if logger.log_file_path.is_err() { warn!("Could not create log file: {}", logger.log_file_path.unwrap_err()) }
+	let logger = create_logger(std::env::current_exe(), configuration.log_directory);
+	CombinedLogger::init(logger.loggers).expect("Should only fail if a logger was already set.");
+	if !logger.time_is_local { warn!("Local time could not be determined. Using UTC."); }
+	if logger.log_file_path.is_err() { warn!("Could not create log file: {}", logger.log_file_path.unwrap_err()); }
 	info!("Starting!");
 
 	let hook_dll_path = configuration.hook_dll_path.to_owned();
@@ -71,7 +72,11 @@ fn main()
 	let mut hooked_processes: HashSet<u32> = HashSet::new();
 	for client_process in all_client_processes
 	{
-		let pid = client_process.pid().unwrap();
+		let pid = match client_process.pid()
+		{
+			Ok(pid) => { pid }
+			Err(err) => { error!("An error occurred when getting the PID for a found process: {} Skipping.", err); continue; }
+		};
 		let syringe: Syringe = Syringe::for_process(client_process);
 		hooked_processes.insert(u32::from(pid));
 		let payload_result: Result<BorrowedProcessModule, InjectError> = syringe.inject(&hook_dll_path);
@@ -105,7 +110,7 @@ fn main()
 	// Seems kind of messy, but it's necessary to move variables into those threads (probably)
 	let mut hooked_processes = hooked_processes.clone();
 	let (ctrl_c_tx, ctrl_c_rx) = mpsc::channel::<HashSet<u32>>();
-	ctrl_c_tx.send(hooked_processes.to_owned()).unwrap();
+	ctrl_c_tx.send(hooked_processes.to_owned()).expect("Can't initialize sending messages to the cleanup thread.");
 
 	let process_callback = move |record: &EventRecord, schema_locator: &SchemaLocator|
 	{
