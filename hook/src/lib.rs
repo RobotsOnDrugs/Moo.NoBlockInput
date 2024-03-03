@@ -142,7 +142,7 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) 
 		let configuration = InjectorConfig::try_new(Some(true), None);
 		if configuration.is_ok()
 		{
-			let logger = create_logger(std::env::current_exe().unwrap(), configuration.unwrap().log_directory);
+			let logger = create_logger(std::env::current_exe(), configuration.unwrap().log_directory);
 			CombinedLogger::init(logger.loggers).unwrap();
 		};
 		unsafe

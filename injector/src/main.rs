@@ -27,6 +27,7 @@ use ferrisetw::trace::stop_trace_by_name;
 use ferrisetw::trace::TraceTrait;
 use ferrisetw::trace::UserTrace;
 
+use log::debug;
 use log::error;
 use log::info;
 use log::warn;
@@ -75,7 +76,7 @@ fn main()
 		let pid = match client_process.pid()
 		{
 			Ok(pid) => { pid }
-			Err(err) => { error!("An error occurred when getting the PID for a found process: {} Skipping.", err); continue; }
+			Err(err) => { warn!("An error occurred when getting the PID for a found process: {} Skipping.", err); continue; }
 		};
 		let syringe: Syringe = Syringe::for_process(client_process);
 		hooked_processes.insert(u32::from(pid));
@@ -99,11 +100,18 @@ fn main()
 				continue;
 			}
 		};
-		let pid_result = syringe.process().pid();
+		let injected_pid = match syringe.process().pid()
+		{
+			Ok(pid) => { pid }
+			Err(err) => { warn!("An error occurred when getting the PID for an injected process: {}", err); continue; }
+		};
 		let name_result = syringe.process().base_name();
-		let process_name = name_result.unwrap();
-		let process_name = process_name.to_string_lossy();
-		info!("Hooked existing process {} (PID {:?})", process_name, pid_result.unwrap());
+		let process_name = match name_result
+		{
+			Ok(process_name) => { process_name.to_string_lossy().to_string() }
+			Err(_) => { "<unknown>".to_string() }
+		};
+		info!("Injected module into existing process {} (PID {})", process_name, injected_pid.get());
 	}
 
 	// Using a cloned hooked_process for use in the callback and a channel to communicate to the Ctrl-C handler from the callback
@@ -119,16 +127,28 @@ fn main()
 			Ok(schema) =>
 			{
 				let parser = Parser::create(record, &schema);
-				let process_id: u32 = parser.try_parse("ProcessID").unwrap();
-				let image_name: String = parser.try_parse("ImageName").unwrap();
-				let file_name = Path::new(&image_name).file_name().unwrap();
-				let file_name = file_name.to_string_lossy().to_string();
+				let process_id: u32 = match parser.try_parse::<u32>("ProcessID")
+				{
+					Ok(pid) => { pid }
+					Err(_) => { return; }
+				};
+				let image_name: String = match parser.try_parse::<String>("ImageName")
+				{
+					Ok(name) => { name }
+					Err(_) => { return; }
+				};
+				let file_name = match Path::new(&image_name).file_name()
+				{
+					None => { debug!("No file name was found for image name {image_name}"); return; }
+					Some(name) => { name.to_string_lossy().to_string() }
+				};
 				if !configuration.processes.contains(&file_name) { return; }
 				if record.event_id() == IMAGE_UNLOAD
 				{
 					hooked_processes.remove(&process_id);
 					info!("Process exited: {} (PID {})", file_name, process_id);
-					ctrl_c_tx.send(hooked_processes.clone()).unwrap();
+					let send_result = ctrl_c_tx.send(hooked_processes.clone());
+					if send_result.is_err() { error!("Couldn't send a message to the cleanup thread {}", send_result.unwrap_err()); panic!() }
 					return;
 				}
 				unsafe
@@ -156,7 +176,8 @@ fn main()
 				}
 				info!("Hooked in callback: {file_name} (PID {process_id})");
 				hooked_processes.insert(process_id);
-				ctrl_c_tx.send(hooked_processes.clone()).unwrap();
+				let send_result = ctrl_c_tx.send(hooked_processes.clone());
+				if send_result.is_err() { error!("Couldn't send a message to the cleanup thread {}", send_result.unwrap_err()); panic!() }
 			}
 			Err(err) => error!("Error {:?}", err)
 		}
@@ -206,7 +227,11 @@ fn main()
 				warn!("PID {pid} exited without the image unload event being captured (detected during cleanup).");
 				continue;
 			}
-			let process = process.unwrap();
+			let process = match process
+			{
+				Ok(process) => { process }
+				Err(err) => { warn!("Couldn't create process object from PID {pid}: {err}"); continue; }
+			};
 			let module = process.find_module_by_path(dll_path);
 			let module = match module
 			{
@@ -229,7 +254,7 @@ fn main()
 			match module
 			{
 				Ok(_) => { info!("Successfully ejected module from {process_name} (PID {pid})."); }
-				Err(err) => { error!("Failed to eject module from {process_name} (PID {pid}): {:?}", err); }
+				Err(err) => { error!("Failed to eject module from {process_name} (PID {pid}): {}", err); }
 			}
 		}
 		exit(err_code);
