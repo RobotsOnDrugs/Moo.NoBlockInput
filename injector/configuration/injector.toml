@@ -11,7 +11,7 @@
 [x64]
 hook_dll_name = ""
 trace_name = "NoBlockInput"
-processes = ["ScreenConnect.WindowsClient.exe", "TeamViewer_Desktop.exe", "AweSun.exe"]
+processes = ["ScreenConnect.WindowsClient.exe", "TeamViewer_Desktop.exe", "AweSun.exe", "IperiusRemote.exe"]
 log_directory = ""
 
 [x86]

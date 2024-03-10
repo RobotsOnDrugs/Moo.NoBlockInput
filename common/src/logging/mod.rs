@@ -35,6 +35,9 @@ pub struct LoggersWithInfo
 pub fn create_logger(module_path: Result<PathBuf, std::io::Error>, log_directory: Result<OsString, Error>) -> LoggersWithInfo
 {
 	let mut config = ConfigBuilder::new()
+		.add_filter_allow("noblock_input_hook_injector".to_string())
+		.add_filter_allow("noblock_input_hook".to_string())
+		.add_filter_allow("noblock_input_common".to_string())
 		.set_time_format_custom(format_description!("[[[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]]"))
 		.set_thread_level(LevelFilter::Trace)
 		.set_target_level(LevelFilter::Trace)
@@ -94,6 +97,6 @@ pub fn get_log_file_path(module_path: &Result<PathBuf, std::io::Error>, log_dire
 	let pid_osstr = format!("{pid}");
 	let pid_osstr = OsStr::new(&pid_osstr);
 	let log_file_stem = [OsStr::new(&formatted_time), &module_name, &pid_osstr].join(OsStr::new("_"));
-	let log_file_name = [log_file_stem.as_os_str(), OsStr::new(".log")].join(OsStr::new("."));
+	let log_file_name = [log_file_stem.as_os_str(), OsStr::new("log")].join(OsStr::new("."));
 	return Path::new(&log_directory).join(log_file_name);
 }
