@@ -133,6 +133,7 @@ fn is_hook_enabled(reg_value_name: &str) -> bool
 	}
 }
 
+// .uwwrap() calls here can't be handled, so there's nothing to do but panic.
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]
 extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) -> bool
@@ -143,7 +144,7 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) 
 		if configuration.is_ok()
 		{
 			let logger = create_logger(std::env::current_exe(), configuration.unwrap().log_directory);
-			CombinedLogger::init(logger.loggers).unwrap();
+			let _ = CombinedLogger::init(logger.loggers);
 		};
 		unsafe
 		{

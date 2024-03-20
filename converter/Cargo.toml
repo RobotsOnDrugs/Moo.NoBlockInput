@@ -1,0 +1,11 @@
+[package]
+name = "noblock_input_converter"
+version = "0.8.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+toml = "0.8"
+winreg = "0.52"
+serde = "1.0.197"
+noblock_input_common = { path = "../common" }

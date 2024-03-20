@@ -32,7 +32,7 @@ pub struct LoggersWithInfo
 	pub time_is_local: bool
 }
 
-pub fn create_logger(module_path: Result<PathBuf, std::io::Error>, log_directory: Result<OsString, Error>) -> LoggersWithInfo
+pub fn create_logger(module_path: Result<PathBuf, std::io::Error>, log_directory: &Result<OsString, Error>) -> LoggersWithInfo
 {
 	let mut config = ConfigBuilder::new()
 		.add_filter_allow("noblock_input_hook_injector".to_string())
@@ -59,19 +59,23 @@ pub fn create_logger(module_path: Result<PathBuf, std::io::Error>, log_directory
 	{
 		Ok(log_directory) =>
 		{
-			let log_file_path = get_log_file_path(&module_path, log_directory);
+			let log_file_path = get_log_file_path(&module_path, log_directory.to_owned());
 			let log_file = OpenOptions::new().create(true).append(true).open(&log_file_path);
 			match log_file
 			{
 				Ok(log_file) =>
 				{
-					let wl = WriteLogger::new(LevelFilter::Debug, built_config.to_owned(), log_file);
+					let wl = WriteLogger::new(LevelFilter::Debug, built_config, log_file);
 					LoggersWithInfo { loggers: vec![tl, wl], log_file_path: Ok(OsString::from(&log_file_path)), time_is_local }
 				}
 				Err(err) => { LoggersWithInfo { loggers: vec![tl], log_file_path: Err(anyhow!("Could not open log file: {err}")), time_is_local } }
 			}
 		}
-		Err(err) => { LoggersWithInfo { loggers: vec![tl], log_file_path: Err(err), time_is_local } }
+		Err(err) =>
+		{
+			let err_message = err.to_string();
+			LoggersWithInfo { loggers: vec![tl], log_file_path: Err(anyhow!(err_message)), time_is_local }
+		}
 	};
 }
 
