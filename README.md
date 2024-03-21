@@ -20,12 +20,15 @@ Please feel free to comment on any issue and add a thumbs up emoji to the initia
 
 
 ## Documentation
-Configuration 
 See the wiki for [a guide to getting started](https://github.com/RobotsOnDrugs/Moo.NoBlockInput/wiki/Getting-Started-and-Usage) and [configuration](https://github.com/RobotsOnDrugs/Moo.NoBlockInput/wiki/Configuration).
 
 
 ## Known issues
 This tool aims to have support for most RDS, but there are some that either have compatiblity issues or are untested. See [issue #9](https://github.com/RobotsOnDrugs/Moo.NoBlockInput/issues/9) and [the compatibility wiki page](https://github.com/RobotsOnDrugs/Moo.NoBlockInput/wiki/Current-compatibility-with-remote-access-software) for progress of testing and compatibility fixes.
+
+## Other
+"Moo" in the name comes from an inside joke among [Scam Fight Club](https://www.scamfightclub.com/) members based on the fact that we like to get scammers to moo.\
+If you're a YouTuber and/or Twitch streamer who uses this tool, [send me a DM on Discord](https://discord.com/users/487390628473208833) with a link to a video or stream VOD. I would love to see it in action.
 
 <br>
 
