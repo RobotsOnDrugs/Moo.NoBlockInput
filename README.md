@@ -28,7 +28,7 @@ This tool aims to have support for most RDS, but there are some that either have
 
 ## Other
 "Moo" in the name comes from an inside joke among [Scam Fight Club](https://www.scamfightclub.com/) members based on the fact that we like to get scammers to moo.\
-If you're a YouTuber and/or Twitch streamer who uses this tool, [send me a DM on Discord](https://discord.com/users/487390628473208833) with a link to a video or stream VOD. I would love to see it in action.
+If you've used this tool, [send me a DM on Discord](https://discord.com/users/487390628473208833) or ping me in a shared server with the scammer's reaction, preferably a video. I would love to see it in action.
 
 <br>
 
