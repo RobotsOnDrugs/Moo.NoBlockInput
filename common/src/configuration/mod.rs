@@ -6,11 +6,8 @@ mod validation;
 
 use std::env;
 use std::ffi::OsString;
-use std::fmt::Display;
 use std::fs::create_dir_all;
-use std::fs::File;
 use std::io::ErrorKind;
-use std::io::Read;
 use std::path::Path;
 use std::string::ToString;
 
@@ -71,91 +68,19 @@ struct RawInjectorConfig
 
 impl InjectorConfig
 {
-	pub fn try_new(use_registry: Option<bool>, config_file_path: Option<OsString>) -> Result<Self, Error>
-	{
-		return match use_registry
-		{
-			None =>
-			{
-				let config = Self::read_registry();
-				match config
-				{
-					Ok(config) => Ok(config),
-					Err(_) => Self::read_configuration_file(None)
-				}
-			}
-			Some(true) => Self::read_registry(),
-			Some(false) => Self::read_configuration_file(config_file_path)
-		};
-	}
-
-	fn read_configuration_file(file_path: Option<OsString>) -> Result<Self, Error>
-	{
-		let file_path = match file_path
-		{
-			None => { OsString::from("injector.toml") }
-			Some(file_path) => { file_path }
-		};
-		let toml_file = File::open(file_path);
-		let mut toml_file = convert_result_to_anyhow_error(toml_file, "Couldn't open the injector configuration file")?;
-		let mut config_toml = String::new();
-		let toml_read_result = toml_file.read_to_string(&mut config_toml);
-		let _ = convert_result_to_anyhow_error(toml_read_result, "Couldn't read the injector configuration file")?;
-		let toml_str = config_toml.as_str();
-		let injector_config: Result<RawFullConfig, toml::de::Error> = toml::from_str(toml_str);
-		let injector_config = convert_result_to_anyhow_error(injector_config, "Couldn't parse the injector configuration file")?;
-
-		#[cfg(target_arch = "x86_64")]
-		let configuration = injector_config.x64;
-		#[cfg(target_arch = "x86")]
-		let configuration = injector_config.x86;
-
-		let trace_name = match configuration.trace_name
-		{
-			None => { DEFAULT_TRACE_NAME.to_string() }
-			Some(trace_name) => { trace_name }
-		};
-
-		let processes = match configuration.processes
-		{
-			None => { return Err(anyhow!("The processes entry in the configuration file is missing.")); }
-			Some(processes) =>
-			{
-				if processes.is_empty() { return Err(anyhow!("The processes entry in the configuration file is empty.")); }
-				processes
-			}
-		};
-
-		let log_directory = configuration.log_directory.map(OsString::from);
-		let log_directory = match log_directory
-		{
-			None => Err(anyhow!("The log_directory option is missing from the configuration file")),
-			Some(log_directory) => validate_log_directory(Ok(log_directory))
-		};
-
-		let configuration = InjectorConfig
-		{
-			hook_dll_path: get_hook_dll_path(&configuration.hook_dll_name)?,
-			trace_name,
-			processes,
-			log_directory
-		};
-		return Ok(configuration);
-	}
-
-	fn read_registry() -> Result<Self, Error>
+	pub fn get_configuration() -> Result<Self, Error>
 	{
 		let processes: Result<Vec<String>, std::io::Error> = get_nbi_value(PROCESSES_VALUE_NAME);
 		let processes = match processes
 		{
 			Ok(processes) =>
 			{
-				if processes.is_empty() { return Err(anyhow!("The processes entry in the registry configuration is empty.")); }
+				if processes[0] == *"" { return Err(anyhow!("The processes entry in the registry configuration is empty.")); }
 				processes
 			}
 			Err(err) =>
 			{
-				if err.kind().ne(&ErrorKind::NotFound)
+				if err.kind().eq(&ErrorKind::NotFound)
 				{
 					return Err(anyhow!("There was an error trying to retrieve the list of processes to hook from the registry: {err}"));
 				}
@@ -176,7 +101,7 @@ impl InjectorConfig
 			}
 			Err(err) =>
 			{
-				if err.kind().ne(&ErrorKind::NotFound)
+				if err.kind().eq(&ErrorKind::NotFound)
 				{
 					return Err(anyhow!("There was an error trying to retrieve the trace name from the registry: {err}"));
 				}
@@ -197,7 +122,7 @@ impl InjectorConfig
 			}
 			Err(err) =>
 			{
-				if err.kind().ne(&ErrorKind::NotFound)
+				if err.kind().eq(&ErrorKind::NotFound)
 				{
 					return Err(anyhow!("There was an error trying to retrieve the hook DLL name from the registry: {err}"));
 				}
@@ -272,13 +197,4 @@ fn get_exe_path() -> Result<OsString, Error>
 		Ok(exe_path) => Ok(exe_path.into_os_string()),
 		Err(err) => { return Err(anyhow!("Couldn't get the path of the this executable: {err}")); }
 	};
-}
-
-fn convert_result_to_anyhow_error<T, U: Display>(result: Result<T, U>, message: &str) -> Result<T, Error>
-{
-	return match result
-	{
-		Ok(item) => Ok(item),
-		Err(err) => { Err(anyhow!(format!("{message}: {err}"))) }
-	}
 }

@@ -1,6 +1,6 @@
 [package]
 name = "noblock_input_hook"
-version = "0.7.2"
+version = "0.8.0"
 edition = "2021"
 
 [lib]
@@ -16,7 +16,7 @@ windows-sys = { version = "0.52", features = ["Win32_UI_Input_KeyboardAndMouse"]
 noblock_input_common = { path = "../common" }
 
 [dependencies.windows]
-version = "0.53"
+version = "0.54"
 features = [
 	"Win32_Foundation",
 	"Win32_System_SystemServices",

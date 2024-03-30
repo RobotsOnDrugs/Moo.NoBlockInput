@@ -4,6 +4,8 @@
 
 
 use std::collections::HashSet;
+use std::ffi::OsString;
+use std::io::Error;
 use std::path::Path;
 use std::process::exit;
 use std::string::ToString;
@@ -46,11 +48,10 @@ const IMAGE_UNLOAD: u16 = 6;
 
 fn main()
 {
-	let configuration = InjectorConfig::try_new(None, None);
-	let configuration = match configuration
+	let configuration = match InjectorConfig::get_configuration()
 	{
 		Ok(configuration) => { configuration }
-		Err(err) => { println!("Could not load configuration: {err}"); exit(-1); }
+		Err(err) => { println!("There was a problem with the configuration: {err}"); exit(-1); }
 	};
 	let logger = create_logger(std::env::current_exe(), configuration.log_directory);
 	CombinedLogger::init(logger.loggers).expect("Should only fail if a logger was already set.");
@@ -140,8 +141,17 @@ fn main()
 				let file_name = match Path::new(&image_name).file_name()
 				{
 					None => { debug!("No file name was found for image name {image_name}"); return; }
-					Some(name) => { name.to_string_lossy().to_string() }
+					Some(name) =>
+					{
+						let name = name.to_string_lossy().to_string();
+						match name.as_str()
+						{
+							"" => { return }  
+							_ => name
+						}
+					}
 				};
+				println!("after validation: process name {} pid {}", file_name, process_id);
 				if !configuration.processes.contains(&file_name) { return; }
 				if record.event_id() == IMAGE_UNLOAD
 				{
@@ -194,7 +204,7 @@ fn main()
 	let (user_trace, handle) = UserTrace::new()
 		.named(String::from(&trace_name))
 		.enable(process_provider)
-		.start().expect(format!("Couldn't start trace {}", trace_name).as_str());
+		.start().unwrap_or_else(|_| panic!("Couldn't start trace {}", trace_name));
 	let name = user_trace.trace_name();
 
 	let trace_name = trace_name.to_owned();

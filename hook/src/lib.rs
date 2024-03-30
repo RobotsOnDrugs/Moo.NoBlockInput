@@ -133,14 +133,14 @@ fn is_hook_enabled(reg_value_name: &str) -> bool
 	}
 }
 
-// .uwwrap() calls here can't be handled, so there's nothing to do but panic.
+// .unwrap() calls here can't be handled, so there's nothing to do but panic.
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]
 extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *mut ()) -> bool
 {
 	if call_reason == DLL_PROCESS_ATTACH
 	{
-		let configuration = InjectorConfig::try_new(Some(true), None);
+		let configuration = InjectorConfig::get_configuration();
 		if configuration.is_ok()
 		{
 			let logger = create_logger(std::env::current_exe(), configuration.unwrap().log_directory);

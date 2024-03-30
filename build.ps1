@@ -1,10 +1,10 @@
-# Requires pwsh (7.0+) and won't work on PowerShell 5 (for the conditional syntax; could be made compatible if necessary)
+# This script requires PowerShell 7.0+ and won't work on PowerShell 5 because of the conditional syntax, but could be made compatible if necessary
 # Also requires cargo for obvious reasons
 # Uses i686-pc-windows-msvc for 32-bit and x86_64-pc-windows-msvc for 64-bit
-# You could probably use the mingw variants or whatever instead if you really needed to, but I only test msvc builds
+# MinGW builds will likely work, but only test msvc builds are tested
 
-# BTW, there's a bug where it will exit with no output and produce nothing if a previous build failed
-# I'll fix it later, but for now, you can just tell it to clean and it'll work
+# Note: there's a bug where it will exit with no output and produce nothing if a previous build failed
+# This will be fixed eventually, but for now, use the -Clean parameter to reset it
 
 <#
   .DESCRIPTION
@@ -14,7 +14,7 @@
   .PARAMETER Clean
   Optional. Specifies whether to fully clean (run `cargo clean`) before building. If omitted, no cleaning is performed.
   .PARAMETER FileDescription <Description>
-  Optional. Specifies the value of FileDescription in the binary's manifest, which is what is displayed in Task Manager
+  Optional. Specifies the value of FileDescription in the binary's manifest, which is what will displayed in Task Manager. Specifying this with something innocuous this is recommended in case a very suspicious scammer looks at Task Manager.
  #>
  #>
 #>
@@ -24,13 +24,18 @@ $ErrorActionPreference = 'Stop'
 $injector_version = (cargo.exe read-manifest --manifest-path .\injector\Cargo.toml | ConvertFrom-Json).version
 $hook_version = (cargo.exe read-manifest --manifest-path .\hook\Cargo.toml | ConvertFrom-Json).version
 $common_version = (cargo.exe read-manifest --manifest-path .\common\Cargo.toml | ConvertFrom-Json).version
-if ($injector_version -ne $hook_version)
+$versions = @($injector_version, $hook_version, $common_version)
+$unique = (ForEach-Object {$versions} | Get-Unique)
+if ($unique.count -ne 1)
 {
-    throw 'Injector version "${injector_version}", hook version ${hook_version}, and common version ${common_version} did not match. Fix the manifests.'
+    Write-Host "Injector version: "$versions[0]
+    Write-Host "Hook version: " $versions[1]
+    Write-Host "Common version: " $versions[2]
+    throw 'Versions did not match. Fix the manifests.'
 }
 
-$release_type = ($BuildDebug ? "debug" : "release" )
-$release_switch = ($BuildDebug ? "" : "release" )
+$release_type = ($BuildDebug ? "debug" : "release")
+$release_switch = ($BuildDebug ? "" : "release")
 
 $output_dir = ".\build\$release_type"
 Remove-Item -Recurse -Force -Path $output_dir -ErrorAction SilentlyContinue | Out-Null
@@ -49,6 +54,6 @@ Copy-Item $x86_path\noblock_input_hook.dll $output_dir\noblock_input32.dll
 Copy-Item $x86_path\noblock_input_hook_injector.exe $output_dir\noblock_input32.exe
 Copy-Item $x64_path\noblock_input_hook.dll $output_dir\noblock_input.dll
 Copy-Item $x64_path\noblock_input_hook_injector.exe $output_dir\noblock_input.exe
-Copy-Item .\injector\configuration\injector.toml $output_dir\injector.toml
+Copy-Item .\injector\configuration\configuration_readme.md $output_dir\configuration_readme.md
 Copy-Item .\injector\configuration\x86.reg $output_dir\x86.reg
 Copy-Item .\injector\configuration\x64.reg $output_dir\x64.reg
