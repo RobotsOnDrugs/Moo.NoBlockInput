@@ -11,7 +11,3 @@ simplelog = "0.12"
 time = { version = "0.3", features = ["formatting"] }
 toml = "0.8"
 winreg = "0.52"
-
-#[dependencies.windows-sys]
-#version = "0.48"
-#features = ["Win32_System_Registry"]

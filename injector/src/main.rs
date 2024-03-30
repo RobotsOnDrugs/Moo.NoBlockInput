@@ -4,7 +4,6 @@
 
 
 use std::collections::HashSet;
-use std::env;
 use std::path::Path;
 use std::process::exit;
 use std::string::ToString;
@@ -39,7 +38,6 @@ use windows::Win32::System::Diagnostics::Debug::DebugActiveProcess;
 use windows::Win32::System::Diagnostics::Debug::DebugActiveProcessStop;
 
 use noblock_input_common::configuration::InjectorConfig;
-use noblock_input_common::configuration::write_to_registry;
 use noblock_input_common::logging::create_logger;
 
 const MICROSOFT_WINDOWS_KERNEL_PROCESS_PROVIDER: &str = "22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716";
@@ -54,33 +52,11 @@ fn main()
 		Ok(configuration) => { configuration }
 		Err(err) => { println!("Could not load configuration: {err}"); exit(-1); }
 	};
-	let logger = create_logger(env::current_exe(), &configuration.log_directory);
+	let logger = create_logger(std::env::current_exe(), configuration.log_directory);
 	CombinedLogger::init(logger.loggers).expect("Should only fail if a logger was already set.");
 	if !logger.time_is_local { warn!("Local time could not be determined. Using UTC."); }
 	if logger.log_file_path.is_err() { warn!("Could not create log file: {}", logger.log_file_path.unwrap_err()); }
 	info!("Starting!");
-
-	let args: Vec<String> = env::args().collect();
-	if args.len() > 2 { warn!("Only one argument is accepted. Ignoring extraneous arguments."); }
-	if args.len() > 1
-	{
-		let arg = args[1].as_str();
-		match arg
-		{
-			"--convert-to-registry" | "convert-to-registry" =>
-			{
-				let result = write_to_registry(&configuration);
-				match result
-				{
-					None => { info!("Configuration has sucessfully been written to the registry"); }
-					Some(err) => { warn!("Could not write configuration to the registry: {}", err) }
-				}
-			},
-			_ => { warn!("Invalid argument: {}. Continuing without converting configuration to the registry.", arg) }
-		};
-	}
-	
-	exit(0);
 
 	let hook_dll_path = configuration.hook_dll_path.to_owned();
 

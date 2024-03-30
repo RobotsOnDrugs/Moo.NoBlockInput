@@ -4,9 +4,8 @@
 
 mod validation;
 
-use std::collections::HashMap;
 use std::env;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::fmt::Display;
 use std::fs::create_dir_all;
 use std::fs::File;
@@ -20,9 +19,8 @@ use anyhow::Error;
 use anyhow::Result;
 
 use serde::Deserialize;
-use winreg::types::ToRegValue;
 
-use crate::registry::{get_nbi_value, set_nbi_value};
+use crate::registry::get_nbi_value;
 use validation::validate_log_directory;
 
 const PROCESSES_VALUE_NAME: &str = "Processes";
@@ -283,22 +281,4 @@ fn convert_result_to_anyhow_error<T, U: Display>(result: Result<T, U>, message: 
 		Ok(item) => Ok(item),
 		Err(err) => { Err(anyhow!(format!("{message}: {err}"))) }
 	}
-}
-
-pub fn write_to_registry(config: &InjectorConfig) -> Option<std::io::Error>
-{
-	// 	pub hook_dll_path: OsString,
-	// 	pub trace_name: String,
-	// 	pub processes: Vec<String>,
-	// 	pub log_directory: Result<OsString, Error>
-
-	let val: dyn ToRegValue = &0u32;
-	let mut config_map: HashMap<&OsStr, dyn ToRegValue> = HashMap::new();
-	config_map.insert(OsStr::new("BlockInputHookEnabled"), &1u32);
-	set_nbi_value(OsStr::new("SendInputHookEnabled"), &1u32);
-	set_nbi_value(OsStr::new("HookDllName"), &config.hook_dll_path);
-	set_nbi_value(OsStr::new("TraceName"), &config.trace_name);
-	set_nbi_value(OsStr::new("SendInputHookEnabled"), &config.processes);
-	set_nbi_value(OsStr::new("SendInputHookEnabled"), &config.log_directory);
-	return None;
 }
