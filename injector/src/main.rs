@@ -4,8 +4,6 @@
 
 
 use std::collections::HashSet;
-use std::ffi::OsString;
-use std::io::Error;
 use std::path::Path;
 use std::process::exit;
 use std::string::ToString;
@@ -51,7 +49,7 @@ fn main()
 	let configuration = match InjectorConfig::get_configuration()
 	{
 		Ok(configuration) => { configuration }
-		Err(err) => { println!("There was a problem with the configuration: {err}"); exit(-1); }
+		Err(err) => { println!("There was a problem with the configuration: {err} Exiting."); exit(-1); }
 	};
 	let logger = create_logger(std::env::current_exe(), configuration.log_directory);
 	CombinedLogger::init(logger.loggers).expect("Should only fail if a logger was already set.");
