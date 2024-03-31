@@ -12,7 +12,6 @@ NoBlockInput hooks the call to [BlockInput()](https://learn.microsoft.com/en-us/
 - The program logs to both the terminal[^4] and optionally to file at a configurable location.
 
 ### Planned features
-- Migration from TOML configuration to registry configuration.[^5] ([Issue #8](https://github.com/RobotsOnDrugs/Moo.NoBlockInput/issues/8)).
 - Configuration of random allowance of remote input to annoy the scammer.
 - Removal or even configurable opacity of any privacy screen used by RDS. ([Issue #11](https://github.com/RobotsOnDrugs/Moo.NoBlockInput/issues/11)).
 
@@ -37,4 +36,3 @@ Notes
 [^2]: Processes cannot be unhooked if the program is terminated unexpectedly and must be restarted in order to run unhooked. See  [the getting started guide](https://github.com/RobotsOnDrugs/Moo.NoBlockInput/wiki/Getting-Started-and-Usage#41-usage-of-windows-kill) for important information on release builds.
 [^3]: If the DLL names do not match their respective injector names, their names must be specified in the configuration.
 [^4]: Only debug builds will write logging information to the terminal in order to prevent showing a console window in release builds.
-[^5]: Support for TOML configuration will be removed in the future. It will still be possible to migrate.
