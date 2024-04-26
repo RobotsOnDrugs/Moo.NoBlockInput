@@ -1,7 +1,6 @@
 #![allow(clippy::needless_return)]
 #![deny(clippy::implicit_return)]
 
-
 mod validation;
 
 use std::env;
@@ -9,16 +8,14 @@ use std::ffi::OsString;
 use std::fs::create_dir_all;
 use std::io::ErrorKind;
 use std::path::Path;
-use std::string::ToString;
 
 use anyhow::anyhow;
 use anyhow::Error;
 use anyhow::Result;
-
 use serde::Deserialize;
+use validation::validate_log_directory;
 
 use crate::registry::get_nbi_value;
-use validation::validate_log_directory;
 
 const PROCESSES_VALUE_NAME: &str = "Processes";
 const TRACE_NAME_VALUE_NAME: &str = "TraceName";
@@ -77,7 +74,7 @@ impl InjectorConfig
 			{
 				if processes[0] == *"" { return Err(anyhow!("The processes entry in the registry configuration is empty.")); }
 				processes
-			}
+			},
 			Err(err) =>
 			{
 				if err.kind().eq(&ErrorKind::NotFound)
@@ -91,14 +88,11 @@ impl InjectorConfig
 		let trace_name: Result<String, std::io::Error> = get_nbi_value(TRACE_NAME_VALUE_NAME);
 		let trace_name = match trace_name
 		{
-			Ok(trace_name) =>
+			Ok(trace_name) => match trace_name.is_empty()
 			{
-				match trace_name.is_empty()
-				{
-					true => DEFAULT_TRACE_NAME.to_string(),
-					false => trace_name
-				}
-			}
+				true => DEFAULT_TRACE_NAME.to_string(),
+				false => trace_name
+			},
 			Err(err) =>
 			{
 				if err.kind().eq(&ErrorKind::NotFound)
@@ -112,14 +106,11 @@ impl InjectorConfig
 		let hook_dll_name: Result<String, std::io::Error> = get_nbi_value(HOOK_DLL_NAME_VALUE_NAME);
 		let hook_dll_path = match hook_dll_name
 		{
-			Ok(hook_dll_name) =>
+			Ok(hook_dll_name) => match hook_dll_name.is_empty()
 			{
-				match hook_dll_name.is_empty()
-				{
-					true => get_hook_dll_path(&None)?,
-					false => get_hook_dll_path(&Some(hook_dll_name))?
-				}
-			}
+				true => get_hook_dll_path(&None)?,
+				false => get_hook_dll_path(&Some(hook_dll_name))?
+			},
 			Err(err) =>
 			{
 				if err.kind().eq(&ErrorKind::NotFound)
@@ -151,7 +142,7 @@ fn get_hook_dll_path(hook_dll_name: &Option<String>) -> Result<OsString, Error>
 {
 	let name = match hook_dll_name
 	{
-		None => { get_dll_path_from_exe() }
+		None => get_dll_path_from_exe(),
 		Some(name) =>
 		{
 			if name.is_empty()
@@ -170,14 +161,11 @@ fn create_log_dir(log_directory: OsString) -> Result<OsString, Error>
 	let directory_creation_result = create_dir_all(&log_directory);
 	return match directory_creation_result
 	{
-		Ok(_) => { Ok(log_directory) }
-		Err(err) =>
+		Ok(_) => Ok(log_directory),
+		Err(err) => match err.kind()
 		{
-			match err.kind()
-			{
-				ErrorKind::AlreadyExists => Ok(log_directory),
-				_ => Err(anyhow!("Log directory could not be created: {err}"))
-			}
+			ErrorKind::AlreadyExists => Ok(log_directory),
+			_ => Err(anyhow!("Log directory could not be created: {err}"))
 		}
 	};
 }
@@ -195,6 +183,6 @@ fn get_exe_path() -> Result<OsString, Error>
 	return match exe_path
 	{
 		Ok(exe_path) => Ok(exe_path.into_os_string()),
-		Err(err) => { return Err(anyhow!("Couldn't get the path of the this executable: {err}")); }
+		Err(err) => return Err(anyhow!("Couldn't get the path of the this executable: {err}"))
 	};
 }

@@ -1,7 +1,6 @@
 #![deny(clippy::implicit_return)]
 #![allow(clippy::needless_return)]
 
-
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::fs::OpenOptions;
@@ -11,7 +10,6 @@ use std::path::PathBuf;
 use anyhow::anyhow;
 use anyhow::Error;
 use anyhow::Result;
-
 use simplelog::Color;
 use simplelog::ColorChoice;
 use simplelog::ConfigBuilder;
@@ -22,7 +20,6 @@ use simplelog::SharedLogger;
 use simplelog::TerminalMode;
 use simplelog::TermLogger;
 use simplelog::WriteLogger;
-
 use time::OffsetDateTime;
 
 pub struct LoggersWithInfo
@@ -42,15 +39,16 @@ pub fn create_logger(module_path: Result<PathBuf, std::io::Error>, log_directory
 		.set_thread_level(LevelFilter::Trace)
 		.set_target_level(LevelFilter::Trace)
 		.set_location_level(LevelFilter::Debug)
-		.set_level_color(Level::Trace, Some(Color::Rgb(192,192,192)))
+		.set_level_color(Level::Trace, Some(Color::Rgb(192, 192, 192)))
 		.set_level_color(Level::Debug, Some(Color::Cyan))
 		.set_level_color(Level::Info, Some(Color::Green))
 		.set_level_color(Level::Warn, Some(Color::Yellow))
-		.set_level_color(Level::Error, Some(Color::Red)).to_owned();
+		.set_level_color(Level::Error, Some(Color::Red))
+		.to_owned();
 	let (config, time_is_local) = match config.set_time_offset_to_local()
 	{
-		Ok(local_time_config) => { (local_time_config, true) }
-		Err(utc_time_config) => { (utc_time_config, false) }
+		Ok(local_time_config) => (local_time_config, true),
+		Err(utc_time_config) => (utc_time_config, false)
 	};
 	let built_config = config.build();
 
@@ -66,15 +64,30 @@ pub fn create_logger(module_path: Result<PathBuf, std::io::Error>, log_directory
 				Ok(log_file) =>
 				{
 					let wl = WriteLogger::new(LevelFilter::Debug, built_config.to_owned(), log_file);
-					LoggersWithInfo { loggers: vec![tl, wl], log_file_path: Ok(OsString::from(&log_file_path)), time_is_local }
+					LoggersWithInfo
+					{
+						loggers: vec![tl, wl],
+						log_file_path: Ok(OsString::from(&log_file_path)),
+						time_is_local
+					}
+				},
+				Err(err) => LoggersWithInfo
+				{
+					loggers: vec![tl],
+					log_file_path: Err(anyhow!("Could not open log file: {err}")),
+					time_is_local
 				}
-				Err(err) => { LoggersWithInfo { loggers: vec![tl], log_file_path: Err(anyhow!("Could not open log file: {err}")), time_is_local } }
 			}
-		}
+		},
 		Err(err) =>
 		{
 			let err_message = err.to_string();
-			LoggersWithInfo { loggers: vec![tl], log_file_path: Err(anyhow!(err_message)), time_is_local }
+			LoggersWithInfo
+			{
+				loggers: vec![tl],
+				log_file_path: Err(anyhow!(err_message)),
+				time_is_local
+			}
 		}
 	};
 }
@@ -91,12 +104,12 @@ pub fn get_log_file_path(module_path: &Result<PathBuf, std::io::Error>, log_dire
 		{
 			let stem = match path.file_stem()
 			{
-				None => { OsString::from("unknown") }
-				Some(path_stem) => { OsString::from(path_stem) }
+				None => OsString::from("unknown"),
+				Some(path_stem) => OsString::from(path_stem)
 			};
 			stem
-		}
-		Err(_) => { OsString::from("unknown") }
+		},
+		Err(_) => OsString::from("unknown")
 	};
 	let pid_osstr = format!("{pid}");
 	let pid_osstr = OsStr::new(&pid_osstr);

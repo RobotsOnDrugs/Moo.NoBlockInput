@@ -6,7 +6,6 @@
 use std::collections::HashSet;
 use std::path::Path;
 use std::process::exit;
-use std::string::ToString;
 use std::sync::mpsc;
 use std::thread::sleep;
 use std::time::Duration;

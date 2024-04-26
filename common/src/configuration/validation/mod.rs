@@ -13,14 +13,11 @@ pub(crate) fn validate_log_directory(log_directory: anyhow::Result<OsString, Opt
 {
 	return match log_directory
 	{
-		Ok(log_directory) => { validate_log_directory_config_value(Ok(log_directory)) }
-		Err(err) =>
+		Ok(log_directory) => validate_log_directory_config_value(Ok(log_directory)),
+		Err(err) => match err
 		{
-			match err
-			{
-				None => { Err(anyhow!("Log directory entry in the configuration file was empty.")) }
-				Some(err) => { validate_log_directory_config_value(Err(err)) }
-			}
+			None => Err(anyhow!("Log directory entry in the configuration file was empty.")),
+			Some(err) => validate_log_directory_config_value(Err(err))
 		}
 	};
 }
@@ -33,7 +30,7 @@ fn validate_log_directory_config_value(result: anyhow::Result<OsString, std::io:
 		{
 			match log_directory.is_empty()
 			{
-				true => { Err(anyhow!("Log directory registry value was empty.")) }
+				true => Err(anyhow!("Log directory registry value was empty.")),
 				false =>
 				{
 					let path_test_str = log_directory.to_string_lossy();

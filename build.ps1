@@ -45,8 +45,8 @@ $env:BINARY_FILE_DESCRIPTION=$FileDescription
 
 if ($Clean) { cargo.exe clean }
 else { cargo.exe clean -r -p noblock_input_hook; cargo clean -r -p noblock_input_hook_injector; }
-if ($LASTEXITCODE -eq 0) { cargo.exe build --target=i686-pc-windows-msvc --$release_switch }
-if ($LASTEXITCODE -eq 0) { cargo.exe build --target=x86_64-pc-windows-msvc --$release_switch }
+if ($LASTEXITCODE -eq 0) { cargo.exe +nightly build --target=i686-pc-windows-msvc --$release_switch }
+if ($LASTEXITCODE -eq 0) { cargo.exe +nightly build --target=x86_64-pc-windows-msvc --$release_switch }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $x86_path = ".\target\i686-pc-windows-msvc\$release_type"
 $x64_path = ".\target\x86_64-pc-windows-msvc\$release_type"
