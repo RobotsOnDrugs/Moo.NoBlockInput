@@ -183,7 +183,9 @@ unsafe extern "system" fn SendInput_detour(cInputs: u32, pInputs: *const INPUT, 
 unsafe extern "system" fn mouse_event_detour(dwFlags: MOUSE_EVENT_FLAGS, dx: i32, dy: i32, dwData: i32, dwExtraInfo: usize)
 {
 	if is_hook_enabled(SENDINPUT_HOOK_ENABLE_NAME) { return; }
+	mouse_event_hook.disable().unwrap();
 	mouse_event(dwFlags, dx, dy, dwData, dwExtraInfo);
+	mouse_event_hook.enable().unwrap();
 }
 
 #[allow(non_snake_case)]
@@ -192,7 +194,10 @@ unsafe extern "system" fn ChangeDisplaySettingsA_detour(lpdevmode: *const DEVMOD
 	info!("ChangeDisplaySettingsA detour was reached.");
 	info!("device mode: {:?} | CDS type: {:?}", lpdevmode, dwflags);
 	if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
-	return ChangeDisplaySettingsA(lpdevmode, dwflags);
+	ChangeDisplaySettingsA_hook.disable().unwrap();
+	let disp_change = ChangeDisplaySettingsA(lpdevmode, dwflags);
+	ChangeDisplaySettingsA_hook.enable().unwrap();
+	return disp_change;
 }
 #[allow(non_snake_case)]
 unsafe extern "system" fn ChangeDisplaySettingsW_detour(lpdevmode: *const DEVMODEW, dwflags: CDS_TYPE) -> DISP_CHANGE
@@ -200,7 +205,10 @@ unsafe extern "system" fn ChangeDisplaySettingsW_detour(lpdevmode: *const DEVMOD
 	info!("ChangeDisplaySettingsW detour was reached.");
 	info!("device mode: {:?} | CDS type: {:?}", lpdevmode, dwflags);
 	if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
-	return ChangeDisplaySettingsW(lpdevmode, dwflags);
+	ChangeDisplaySettingsW_hook.disable().unwrap();
+	let disp_change = ChangeDisplaySettingsW(lpdevmode, dwflags);
+	ChangeDisplaySettingsW_hook.enable().unwrap();
+	return disp_change;
 }
 #[allow(non_snake_case)]
 unsafe extern "system" fn ChangeDisplaySettingsExA_detour(lpszdevicename: windows_sys::core::PCSTR, lpdevmode: *const DEVMODEA, hwnd: HWND, dwflags: CDS_TYPE, lparam: *const c_void) -> DISP_CHANGE
@@ -208,7 +216,10 @@ unsafe extern "system" fn ChangeDisplaySettingsExA_detour(lpszdevicename: window
 	info!("ChangeDisplaySettingsExA detour was reached.");
 	info!("device name: {:?} | device mode: {:?} | hwnd: {:?} | CDS type: {:?} | lparam: {:?}", lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
 	if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
-	return ChangeDisplaySettingsExA(lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
+	ChangeDisplaySettingsExA_hook.disable().unwrap();
+	let disp_change = ChangeDisplaySettingsExA(lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
+	ChangeDisplaySettingsExA_hook.enable().unwrap();
+	return disp_change;
 }
 #[allow(non_snake_case)]
 unsafe extern "system" fn ChangeDisplaySettingsExW_detour(lpszdevicename: windows_sys::core::PCWSTR, lpdevmode: *const DEVMODEW, hwnd: HWND, dwflags: CDS_TYPE, lparam: *const c_void) -> DISP_CHANGE
@@ -216,7 +227,10 @@ unsafe extern "system" fn ChangeDisplaySettingsExW_detour(lpszdevicename: window
 	info!("ChangeDisplaySettingsExW detour was reached.");
 	info!("device name: {:?} | device mode: {:?} | hwnd: {:?} | CDS type: {:?} | lparam: {:?}", lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
 	if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
-	return ChangeDisplaySettingsExW(lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
+	ChangeDisplaySettingsExW_hook.disable().unwrap();
+	let disp_change = ChangeDisplaySettingsExW(lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
+	ChangeDisplaySettingsExW_hook.enable().unwrap();
+	return disp_change;
 }
 
 fn is_hook_enabled(reg_value_name: &str) -> bool
@@ -242,8 +256,8 @@ unsafe extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *m
 			let logger = create_logger(std::env::current_exe(), configuration.unwrap().log_directory);
 			let _ = CombinedLogger::init(logger.loggers);
 		};
-		SendInput_hook.enable().unwrap();
 		BlockInput_hook.enable().unwrap();
+		SendInput_hook.enable().unwrap();
 		mouse_event_hook.enable().unwrap();
 		ChangeDisplaySettingsA_hook.enable().unwrap();
 		ChangeDisplaySettingsW_hook.enable().unwrap();

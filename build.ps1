@@ -26,6 +26,11 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+if (!($PSVersionTable.PSCompatibleVersions).Major.Contains(7))
+{
+	Write-Error "This script requires PowerShell Core and is not compatible with PowerShell $($PSVersionTable.PSVersion.ToString())"
+}
+
 $injector_version = (cargo.exe read-manifest --manifest-path .\injector\Cargo.toml | ConvertFrom-Json).version
 $hook_version = (cargo.exe read-manifest --manifest-path .\hook\Cargo.toml | ConvertFrom-Json).version
 $common_version = (cargo.exe read-manifest --manifest-path .\common\Cargo.toml | ConvertFrom-Json).version
