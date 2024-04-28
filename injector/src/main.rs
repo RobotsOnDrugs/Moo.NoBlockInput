@@ -148,7 +148,6 @@ fn main()
 						}
 					}
 				};
-				println!("after validation: process name {} pid {}", file_name, process_id);
 				if !configuration.processes.contains(&file_name) { return; }
 				if record.event_id() == IMAGE_UNLOAD
 				{
