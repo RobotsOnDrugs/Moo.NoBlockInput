@@ -29,7 +29,7 @@ pub struct LoggersWithInfo
 	pub time_is_local: bool
 }
 
-pub fn create_logger(module_path: Result<PathBuf, std::io::Error>, log_directory: Result<OsString, Error>) -> LoggersWithInfo
+pub fn create_logger(module_path: Result<PathBuf, std::io::Error>, log_directory: Result<OsString, Error>, log_level: LevelFilter) -> LoggersWithInfo
 {
 	let mut config = ConfigBuilder::new()
 		.add_filter_allow("noblock_input_hook_injector".to_string())
@@ -52,7 +52,7 @@ pub fn create_logger(module_path: Result<PathBuf, std::io::Error>, log_directory
 	};
 	let built_config = config.build();
 
-	let tl = TermLogger::new(LevelFilter::Debug, built_config.to_owned(), TerminalMode::Mixed, ColorChoice::Auto);
+	let tl = TermLogger::new(log_level, built_config.to_owned(), TerminalMode::Mixed, ColorChoice::Auto);
 	return match log_directory
 	{
 		Ok(log_directory) =>
@@ -63,7 +63,7 @@ pub fn create_logger(module_path: Result<PathBuf, std::io::Error>, log_directory
 			{
 				Ok(log_file) =>
 				{
-					let wl = WriteLogger::new(LevelFilter::Debug, built_config.to_owned(), log_file);
+					let wl = WriteLogger::new(log_level, built_config.to_owned(), log_file);
 					LoggersWithInfo
 					{
 						loggers: vec![tl, wl],
@@ -113,7 +113,7 @@ pub fn get_log_file_path(module_path: &Result<PathBuf, std::io::Error>, log_dire
 	};
 	let pid_osstr = format!("{pid}");
 	let pid_osstr = OsStr::new(&pid_osstr);
-	let log_file_stem = [OsStr::new(&formatted_time), &module_name, &pid_osstr].join(OsStr::new("_"));
+	let log_file_stem = [OsStr::new(&formatted_time), &module_name, pid_osstr].join(OsStr::new("_"));
 	let log_file_name = [log_file_stem.as_os_str(), OsStr::new("log")].join(OsStr::new("."));
 	return Path::new(&log_directory).join(log_file_name);
 }

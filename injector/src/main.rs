@@ -50,7 +50,7 @@ fn main()
 		Ok(configuration) => { configuration }
 		Err(err) => { println!("There was a problem with the configuration: {err} Exiting."); exit(-1); }
 	};
-	let logger = create_logger(std::env::current_exe(), configuration.log_directory);
+	let logger = create_logger(std::env::current_exe(), configuration.log_directory, configuration.log_level);
 	CombinedLogger::init(logger.loggers).expect("Should only fail if a logger was already set.");
 	if !logger.time_is_local { warn!("Local time could not be determined. Using UTC."); }
 	if logger.log_file_path.is_err() { warn!("Could not create log file: {}", logger.log_file_path.unwrap_err()); }

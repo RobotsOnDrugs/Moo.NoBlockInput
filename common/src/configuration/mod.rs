@@ -12,7 +12,7 @@ use std::path::Path;
 use anyhow::anyhow;
 use anyhow::Error;
 use anyhow::Result;
-use serde::Deserialize;
+use log::LevelFilter;
 use validation::validate_log_directory;
 
 use crate::registry::get_nbi_value;
@@ -21,6 +21,7 @@ const PROCESSES_VALUE_NAME: &str = "Processes";
 const TRACE_NAME_VALUE_NAME: &str = "TraceName";
 const HOOK_DLL_NAME_VALUE_NAME: &str = "HookDllName";
 const LOG_DIRECTORY_VALUE_NAME: &str = "LogDirectory";
+const LOG_LEVEL_VALUE_NAME: &str = "LogLevel";
 
 #[cfg(target_arch = "x86_64")]
 const DEFAULT_TRACE_NAME: &str = "NoBlockInput";
@@ -42,25 +43,8 @@ pub struct InjectorConfig
 	pub hook_dll_path: OsString,
 	pub trace_name: String,
 	pub processes: Vec<String>,
-	pub log_directory: Result<OsString, Error>
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[allow(dead_code)]
-struct RawFullConfig
-{
-	x64: RawInjectorConfig,
-	x86: RawInjectorConfig
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[allow(dead_code)]
-struct RawInjectorConfig
-{
-	pub hook_dll_name: Option<String>,
-	pub trace_name: Option<String>,
-	pub processes: Option<Vec<String>>,
-	pub log_directory: Option<String>
+	pub log_directory: Result<OsString, Error>,
+	pub log_level: LevelFilter
 }
 
 impl InjectorConfig
@@ -134,7 +118,24 @@ impl InjectorConfig
 			Err(_) => log_directory
 		};
 
-		return Ok(InjectorConfig { hook_dll_path, processes, trace_name, log_directory });
+		let log_level: Result<u32, std::io::Error> = get_nbi_value(LOG_LEVEL_VALUE_NAME);
+		let default_log_level = if cfg!(debug_assertions) { LevelFilter::Debug } else { LevelFilter::Info };
+		let log_level = match log_level
+		{
+			Ok(value) => match value
+			{
+				0 => LevelFilter::Off,
+				1 => LevelFilter::Error,
+				2 => LevelFilter::Warn,
+				3 => LevelFilter::Info,
+				4 => LevelFilter::Debug,
+				5 => LevelFilter::Trace,
+				_ => default_log_level
+			}
+			Err(_) => default_log_level
+		};
+
+		return Ok(InjectorConfig { hook_dll_path, processes, trace_name, log_directory, log_level });
 	}
 }
 

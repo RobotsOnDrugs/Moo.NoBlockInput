@@ -187,7 +187,8 @@ unsafe extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: u32, _: *m
 		let configuration = InjectorConfig::get_configuration();
 		if configuration.is_ok()
 		{
-			let logger = create_logger(std::env::current_exe(), configuration.unwrap().log_directory);
+			let configuration = configuration.unwrap();
+			let logger = create_logger(std::env::current_exe(), configuration.log_directory, configuration.log_level);
 			let _ = CombinedLogger::init(logger.loggers);
 		};
 		BlockInput_hook.enable().unwrap();
