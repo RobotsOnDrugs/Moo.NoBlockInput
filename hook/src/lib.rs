@@ -1,3 +1,7 @@
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
+
 #![deny(clippy::implicit_return)]
 #![allow(clippy::needless_return)]
 
@@ -5,11 +9,14 @@
 use std::ffi::c_void;
 
 use anyhow::Result;
+use log::debug;
 use log::info;
 use log::trace;
 use log::warn;
 use once_cell::sync::Lazy;
+use retour::Function;
 use retour::GenericDetour;
+use retour::HookableWith;
 use simplelog::CombinedLogger;
 use windows::core::PCSTR;
 use windows::Win32::Foundation::BOOL;
@@ -39,110 +46,47 @@ use noblock_input_common::registry::get_nbi_value;
 
 const BLOCKINPUT_HOOK_ENABLE_NAME: &str = "BlockInputHookEnabled";
 const SENDINPUT_HOOK_ENABLE_NAME: &str = "SendInputHookEnabled";
-const CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME: &str = "ChangeDisplaySettingsHookEnabled";
+// const CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME: &str = "ChangeDisplaySettingsHookEnabled";
 
-#[allow(non_camel_case_types)]
 type BlockInput_signature = unsafe extern "system" fn(BOOL) -> BOOL;
-#[allow(non_camel_case_types)]
 type SendInput_signature = unsafe extern "system" fn(u32, *const INPUT, i32) -> u32;
-#[allow(non_camel_case_types)]
 type mouse_event_signature = unsafe extern "system" fn(MOUSE_EVENT_FLAGS, i32, i32, i32, usize);
-
-// 0 => The graphics mode for the current screen will be changed dynamically.
-// CDS_UPDATEREGISTRY = 1
-// CDS_TEST = 2
-// CDS_FULLSCREEN = 4
-// CDS_GLOBAL = 8
-// CDS_SET_PRIMARY = 16
-// CDS_RESET = 1073741824
-// CDS_SETRECT = 536870912
-// CDS_NORESET = 268435456
-
-// DISP_CHANGE_SUCCESSFUL = 0
-// DISP_CHANGE_RESTART = 1
-// DISP_CHANGE_FAILED = -1
-// DISP_CHANGE_BADMODE = -2
-// DISP_CHANGE_NOTUPDATED = -3
-// DISP_CHANGE_BADFLAGS = -4
-// DISP_CHANGE_BADPARAM = -5
-// DISP_CHANGE_BADDUALVIEW = -6
-#[allow(non_camel_case_types)]
 type ChangeDisplaySettingsA_signature = unsafe extern "system" fn(*const DEVMODEA, CDS_TYPE) -> DISP_CHANGE;
-#[allow(non_camel_case_types)]
 type ChangeDisplaySettingsW_signature = unsafe extern "system" fn(*const DEVMODEW, CDS_TYPE) -> DISP_CHANGE;
-#[allow(non_camel_case_types)]
 type ChangeDisplaySettingsExA_signature = unsafe extern "system" fn(windows_sys::core::PCSTR, *const DEVMODEA, HWND, CDS_TYPE, *const c_void) -> DISP_CHANGE;
-#[allow(non_camel_case_types)]
 type ChangeDisplaySettingsExW_signature = unsafe extern "system" fn(windows_sys::core::PCWSTR, *const DEVMODEW, HWND, CDS_TYPE, *const c_void) -> DISP_CHANGE;
 
-#[allow(non_upper_case_globals)]
-static BlockInput_hook: Lazy<GenericDetour<BlockInput_signature>> =
-	Lazy::new(||
-	{
-		let library_handle = unsafe { LoadLibraryA(PCSTR(b"user32.dll\0".as_ptr() as _)) }.unwrap();
-		let address = unsafe { GetProcAddress(library_handle, PCSTR(b"BlockInput\0".as_ptr() as _)) };
-		let ori: BlockInput_signature = unsafe { std::mem::transmute(address) };
-		return unsafe { GenericDetour::new(ori, BlockInput_detour).unwrap() };
-	});
-#[allow(non_upper_case_globals)]
-static SendInput_hook: Lazy<GenericDetour<SendInput_signature>> =
-	Lazy::new(||
-	{
-		let library_handle = unsafe { LoadLibraryA(PCSTR(b"user32.dll\0".as_ptr() as _)) }.unwrap();
-		let address = unsafe { GetProcAddress(library_handle, PCSTR(b"SendInput\0".as_ptr() as _)) };
-		let ori: SendInput_signature = unsafe { std::mem::transmute(address) };
-		return unsafe { GenericDetour::new(ori, SendInput_detour).unwrap() };
-	});
-#[allow(non_upper_case_globals)]
-static mouse_event_hook: Lazy<GenericDetour<mouse_event_signature>> =
-	Lazy::new(||
-	{
-		let library_handle = unsafe { LoadLibraryA(PCSTR(b"user32.dll\0".as_ptr() as _)) }.unwrap();
-		let address = unsafe { GetProcAddress(library_handle, PCSTR(b"mouse_event\0".as_ptr() as _)) };
-		let ori: mouse_event_signature = unsafe { std::mem::transmute(address) };
-		return unsafe { GenericDetour::new(ori, mouse_event_detour).unwrap() };
-	});
+unsafe fn make_lazy<T: HookableWith<D> + Sized, D: Function>(dll_name: &str, fn_name: &str, detour: D) -> GenericDetour<T>
+{
+	let dll_name = format!("{dll_name}\0");
+	let dll_name = PCSTR::from_raw(dll_name.as_bytes().as_ptr());
+	let fn_name = format!("{fn_name}\0");
+	let fn_name = PCSTR::from_raw(fn_name.as_bytes().as_ptr());
+	
+	let library_handle = LoadLibraryA(dll_name).unwrap();
+	let address = GetProcAddress(library_handle, fn_name);
+	let ori: T = std::mem::transmute_copy(&address.unwrap());
+	return GenericDetour::new(ori, detour).unwrap();
+}
 
-#[allow(non_upper_case_globals)]
+static BlockInput_hook: Lazy<GenericDetour<BlockInput_signature>> =
+	unsafe { Lazy::new(|| return make_lazy::<BlockInput_signature, BlockInput_signature>("user32.dll", "BlockInput", BlockInput_detour)) };
+static SendInput_hook: Lazy<GenericDetour<SendInput_signature>> =
+	unsafe { Lazy::new(|| return make_lazy::<SendInput_signature, SendInput_signature>("user32.dll", "SendInput", SendInput_detour)) };
+static mouse_event_hook: Lazy<GenericDetour<mouse_event_signature>> =
+	unsafe { Lazy::new(|| return make_lazy::<mouse_event_signature, mouse_event_signature>("user32.dll", "mouse_event", mouse_event_detour)) };
 static ChangeDisplaySettingsA_hook: Lazy<GenericDetour<ChangeDisplaySettingsA_signature>> =
-	Lazy::new(||
-	{
-		let library_handle = unsafe { LoadLibraryA(PCSTR(b"user32.dll\0".as_ptr() as _)) }.unwrap();
-		let address = unsafe { GetProcAddress(library_handle, PCSTR(b"ChangeDisplaySettingsA\0".as_ptr() as _)) };
-		let ori: ChangeDisplaySettingsA_signature = unsafe { std::mem::transmute(address) };
-		return unsafe { GenericDetour::new(ori, ChangeDisplaySettingsA_detour).unwrap() };
-	});
-#[allow(non_upper_case_globals)]
+	unsafe { Lazy::new(|| return make_lazy::<ChangeDisplaySettingsA_signature, ChangeDisplaySettingsA_signature>("user32.dll", "ChangeDisplaySettingsA", ChangeDisplaySettingsA_detour)) };
 static ChangeDisplaySettingsW_hook: Lazy<GenericDetour<ChangeDisplaySettingsW_signature>> =
-	Lazy::new(||
-		{let library_handle = unsafe { LoadLibraryA(PCSTR(b"user32.dll\0".as_ptr() as _)) }.unwrap();
-	let address = unsafe { GetProcAddress(library_handle, PCSTR(b"ChangeDisplaySettingsW\0".as_ptr() as _)) };
-	let ori: ChangeDisplaySettingsW_signature = unsafe { std::mem::transmute(address) };
-	return unsafe { GenericDetour::new(ori, ChangeDisplaySettingsW_detour).unwrap() };
-});
-#[allow(non_upper_case_globals)]
+	unsafe { Lazy::new(|| return make_lazy::<ChangeDisplaySettingsW_signature, ChangeDisplaySettingsW_signature>("user32.dll", "ChangeDisplaySettingsW", ChangeDisplaySettingsW_detour)) };
 static ChangeDisplaySettingsExA_hook: Lazy<GenericDetour<ChangeDisplaySettingsExA_signature>> =
-	Lazy::new(||
-	{
-		let library_handle = unsafe { LoadLibraryA(PCSTR(b"user32.dll\0".as_ptr() as _)) }.unwrap();
-		let address = unsafe { GetProcAddress(library_handle, PCSTR(b"ChangeDisplaySettingsExA\0".as_ptr() as _)) };
-		let ori: ChangeDisplaySettingsExA_signature = unsafe { std::mem::transmute(address) };
-		return unsafe { GenericDetour::new(ori, ChangeDisplaySettingsExA_detour).unwrap() };
-	});
-#[allow(non_upper_case_globals)]
+	unsafe { Lazy::new(|| return make_lazy::<ChangeDisplaySettingsExA_signature, ChangeDisplaySettingsExA_signature>("user32.dll", "ChangeDisplaySettingsExA", ChangeDisplaySettingsExA_detour)) };
 static ChangeDisplaySettingsExW_hook: Lazy<GenericDetour<ChangeDisplaySettingsExW_signature>> =
-	Lazy::new(||
-	{
-		let library_handle = unsafe { LoadLibraryA(PCSTR(b"user32.dll\0".as_ptr() as _)) }.unwrap();
-		let address = unsafe { GetProcAddress(library_handle, PCSTR(b"ChangeDisplaySettingsExW\0".as_ptr() as _)) };
-		let ori: ChangeDisplaySettingsExW_signature = unsafe { std::mem::transmute(address) };
-		return unsafe { GenericDetour::new(ori, ChangeDisplaySettingsExW_detour).unwrap() };
-	});
+	unsafe { Lazy::new(|| return make_lazy::<ChangeDisplaySettingsExW_signature, ChangeDisplaySettingsExW_signature>("user32.dll", "ChangeDisplaySettingsExW", ChangeDisplaySettingsExW_detour)) };
 
 /// This assumes all was well and returns fBlockIt even if the call was not
 /// successful. Probably should handle that, but meh.
 /// The default is to enable the hook when there is an error.
-#[allow(non_snake_case)]
 unsafe extern "system" fn BlockInput_detour(fBlockIt: BOOL) -> BOOL
 {
 	trace!("BlockInput detour was reached.");
@@ -164,7 +108,6 @@ unsafe extern "system" fn BlockInput_detour(fBlockIt: BOOL) -> BOOL
 	BlockInput_hook.enable().unwrap();
 	return fBlockIt;
 }
-#[allow(non_snake_case)]
 unsafe extern "system" fn SendInput_detour(cInputs: u32, pInputs: *const INPUT, cbSize: i32) -> u32
 {
 	trace!("SendInput detour was reached.");
@@ -179,7 +122,6 @@ unsafe extern "system" fn SendInput_detour(cInputs: u32, pInputs: *const INPUT, 
 	trace!("SendInput was passed through.");
 	return inputs_processed;
 }
-#[allow(non_snake_case)]
 unsafe extern "system" fn mouse_event_detour(dwFlags: MOUSE_EVENT_FLAGS, dx: i32, dy: i32, dwData: i32, dwExtraInfo: usize)
 {
 	if is_hook_enabled(SENDINPUT_HOOK_ENABLE_NAME) { return; }
@@ -188,45 +130,37 @@ unsafe extern "system" fn mouse_event_detour(dwFlags: MOUSE_EVENT_FLAGS, dx: i32
 	mouse_event_hook.enable().unwrap();
 }
 
-#[allow(non_snake_case)]
 unsafe extern "system" fn ChangeDisplaySettingsA_detour(lpdevmode: *const DEVMODEA, dwflags: CDS_TYPE) -> DISP_CHANGE
 {
-	info!("ChangeDisplaySettingsA detour was reached.");
-	info!("device mode: {:?} | CDS type: {:?}", lpdevmode, dwflags);
-	if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
+	debug!("ChangeDisplaySettingsA: device mode: {:?} | CDS type: {:?}", lpdevmode, dwflags);
+	// if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
 	ChangeDisplaySettingsA_hook.disable().unwrap();
 	let disp_change = ChangeDisplaySettingsA(lpdevmode, dwflags);
 	ChangeDisplaySettingsA_hook.enable().unwrap();
 	return disp_change;
 }
-#[allow(non_snake_case)]
 unsafe extern "system" fn ChangeDisplaySettingsW_detour(lpdevmode: *const DEVMODEW, dwflags: CDS_TYPE) -> DISP_CHANGE
 {
-	info!("ChangeDisplaySettingsW detour was reached.");
-	info!("device mode: {:?} | CDS type: {:?}", lpdevmode, dwflags);
-	if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
+	debug!("ChangeDisplaySettingsW: device mode: {:?} | CDS type: {:?}", lpdevmode, dwflags);
+	// if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
 	ChangeDisplaySettingsW_hook.disable().unwrap();
 	let disp_change = ChangeDisplaySettingsW(lpdevmode, dwflags);
 	ChangeDisplaySettingsW_hook.enable().unwrap();
 	return disp_change;
 }
-#[allow(non_snake_case)]
 unsafe extern "system" fn ChangeDisplaySettingsExA_detour(lpszdevicename: windows_sys::core::PCSTR, lpdevmode: *const DEVMODEA, hwnd: HWND, dwflags: CDS_TYPE, lparam: *const c_void) -> DISP_CHANGE
 {
-	info!("ChangeDisplaySettingsExA detour was reached.");
-	info!("device name: {:?} | device mode: {:?} | hwnd: {:?} | CDS type: {:?} | lparam: {:?}", lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
-	if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
+	info!("ChangeDisplaySettingsExA: device name: {:?} | device mode: {:?} | hwnd: {:?} | CDS type: {:?} | lparam: {:?}", lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
+	// if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
 	ChangeDisplaySettingsExA_hook.disable().unwrap();
 	let disp_change = ChangeDisplaySettingsExA(lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
 	ChangeDisplaySettingsExA_hook.enable().unwrap();
 	return disp_change;
 }
-#[allow(non_snake_case)]
 unsafe extern "system" fn ChangeDisplaySettingsExW_detour(lpszdevicename: windows_sys::core::PCWSTR, lpdevmode: *const DEVMODEW, hwnd: HWND, dwflags: CDS_TYPE, lparam: *const c_void) -> DISP_CHANGE
 {
-	info!("ChangeDisplaySettingsExW detour was reached.");
-	info!("device name: {:?} | device mode: {:?} | hwnd: {:?} | CDS type: {:?} | lparam: {:?}", lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
-	if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
+	info!("ChangeDisplaySettingsExA: device name: {:?} | device mode: {:?} | hwnd: {:?} | CDS type: {:?} | lparam: {:?}", lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
+	// if is_hook_enabled(CHANGE_DISPLAY_SETTINGS_HOOK_ENABLE_NAME) { } // return DISP_CHANGE(0);
 	ChangeDisplaySettingsExW_hook.disable().unwrap();
 	let disp_change = ChangeDisplaySettingsExW(lpszdevicename, lpdevmode, hwnd, dwflags, lparam);
 	ChangeDisplaySettingsExW_hook.enable().unwrap();
